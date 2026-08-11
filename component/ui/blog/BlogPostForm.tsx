@@ -39,7 +39,7 @@ export function BlogPostForm({
                     {editId ? "Edit" : "Post new"}
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold">
-                    {editId ? "Renew articles" : "Create blogs"}
+                    {editId ? "Renew articles" : "Make new post"}
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">{status}</p>
             </div>
