@@ -108,7 +108,7 @@ export function BlogPage() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">Home</p>
-                            <h1 className="text-2xl font-semibold text-slate-900">Post Anything</h1>
+                            <h1 className="text-2xl font-semibold text-slate-900">MURMUR</h1>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             {sessionEmail ? (

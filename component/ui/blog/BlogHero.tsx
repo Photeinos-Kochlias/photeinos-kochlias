@@ -11,10 +11,10 @@ export function BlogHero({ postCount }: BlogHeroProps) {
                         Home
                     </p>
                     <h1 className="text-4xl font-bold sm:text-5xl">
-                        Post Anything
+                        MURMUR
                     </h1>
                     <p className="text-lg leading-8 text-slate-300">
-                        can make post from browser.
+                        Say anything you want lol.
                     </p>
                 </div>
                 <div className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur">
