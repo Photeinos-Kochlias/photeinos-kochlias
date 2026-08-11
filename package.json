@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "./node_modules/.bin/next dev",
-    "build":"./node_modules/.bin/next build",
-    "start":"./node_modules/.bin/next start",
+    "build": "./node_modules/.bin/next build",
+    "start": "./node_modules/.bin/next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "mongodb": "^7.5.0",
     "next": "^16.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

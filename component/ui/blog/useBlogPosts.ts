@@ -1,58 +1,33 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import type { Post } from "./types";
-
-
-//デバッグ用Post
-const initialPosts: Post[] = [
-    {
-        id: 1,
-        title: "Test blog",
-        content: "Let us post!",
-        createdAt: "2026/08/01",
-    },
-    {
-        id: 2,
-        title: "today",
-        content: "blablabla",
-        createdAt: "2026/08/05",
-    },
-];
+import type { CreatePostPayload, Post, UpdatePostPayload } from "./types";
 
 export function useBlogPosts() {
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
-    const [posts, setPosts] = useState<Post[]>(initialPosts);
+    const [posts, setPosts] = useState<Post[]>([]);
     const [editId, setEditId] = useState<number | null>(null);
-    const [status, setStatus] = useState("Make new post.");
+    const [status, setStatus] = useState("Loading posts...");
 
-    useEffect(() => {
-        if (typeof window === "undefined") {
-            return;
-        }
-
-        const savedPosts = window.localStorage.getItem("blog-posts");
-        if (!savedPosts) {
-            return;
-        }
-
+    const loadPosts = async () => {
         try {
-            const parsedPosts = JSON.parse(savedPosts) as Post[];
-            if (Array.isArray(parsedPosts) && parsedPosts.length > 0) {
-                // eslint-disable-next-line react-hooks/set-state-in-effect
-                setPosts(parsedPosts);
+            const response = await fetch("/api/posts");
+            if (!response.ok) {
+                throw new Error("Failed to load posts");
             }
+            const data = (await response.json()) as Post[];
+            setPosts(data);
+            setStatus("Make new post.");
         } catch {
-            window.localStorage.removeItem("blog-posts");
+            setStatus("Unable to load posts from the database.");
         }
-    }, []);
+    };
 
     useEffect(() => {
-        if (typeof window !== "undefined") {
-            window.localStorage.setItem("blog-posts", JSON.stringify(posts));
-        }
-    }, [posts]);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        void loadPosts();
+    }, []);
 
     const resetForm = () => {
         setTitle("");
@@ -60,7 +35,7 @@ export function useBlogPosts() {
         setEditId(null);
     };
 
-    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         const trimmedTitle = title.trim();
@@ -71,37 +46,50 @@ export function useBlogPosts() {
             return;
         }
 
-        if (editId !== null) {
-            setPosts((currentPosts) =>
-                currentPosts.map((post) =>
-                    post.id === editId
-                        ? {
-                              ...post,
-                              title: trimmedTitle,
-                              content: trimmedContent,
-                          }
-                        : post,
-                ),
-            );
-            setStatus("post renewed.");
+        try {
+            if (editId !== null) {
+                const payload: UpdatePostPayload = {
+                    title: trimmedTitle,
+                    content: trimmedContent,
+                };
+
+                const response = await fetch(`/api/posts/${editId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    throw new Error("Update failed");
+                }
+
+                setStatus("post renewed.");
+                resetForm();
+                await loadPosts();
+                return;
+            }
+
+            const payload: CreatePostPayload = {
+                title: trimmedTitle,
+                content: trimmedContent,
+            };
+
+            const response = await fetch("/api/posts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error("Create failed");
+            }
+
+            setStatus("new post added");
             resetForm();
-            return;
+            await loadPosts();
+        } catch {
+            setStatus("Failed to save post.");
         }
-
-        const newPost: Post = {
-            id: Date.now(),
-            title: trimmedTitle,
-            content: trimmedContent,
-            createdAt: new Date().toLocaleDateString("ja-JP", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-            }),
-        };
-
-        setPosts((currentPosts) => [newPost, ...currentPosts]);
-        setStatus("new post added");
-        resetForm();
     };
 
     const handleEdit = (post: Post) => {
@@ -111,14 +99,25 @@ export function useBlogPosts() {
         setStatus("Editing. Save your change.");
     };
 
-    const handleDelete = (postId: number) => {
-        setPosts((currentPosts) =>
-            currentPosts.filter((post) => post.id !== postId),
-        );
-        if (editId === postId) {
-            resetForm();
+    const handleDelete = async (postId: number) => {
+        try {
+            const response = await fetch(`/api/posts/${postId}`, {
+                method: "DELETE",
+            });
+
+            if (!response.ok) {
+                throw new Error("Delete failed");
+            }
+
+            if (editId === postId) {
+                resetForm();
+            }
+
+            setStatus("Post deleted.");
+            await loadPosts();
+        } catch {
+            setStatus("Failed to delete post.");
         }
-        setStatus("Post deleted.");
     };
 
     return {

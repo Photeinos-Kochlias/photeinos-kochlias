@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ブログホーム",
-  description: "ブラウザから新しいブログ投稿を作成・表示できるホームページです。",
+  title: "BlogHome",
+  description: "not yet", //!must update
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
