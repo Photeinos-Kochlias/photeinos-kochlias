@@ -1,14 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import type { CreatePostPayload, Post, UpdatePostPayload } from "./types";
+import type { CreatePostPayload, CurrentUser, Post, UpdatePostPayload } from "./types";
 
 export function useBlogPosts() {
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
+    const [imageUrl, setImageUrl] = useState("");
+    const [visibility, setVisibility] = useState<"public" | "private" | "followers">("public");
     const [posts, setPosts] = useState<Post[]>([]);
     const [editId, setEditId] = useState<number | null>(null);
     const [status, setStatus] = useState("Loading posts...");
+    const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
     const loadPosts = async () => {
         try {
@@ -24,14 +27,33 @@ export function useBlogPosts() {
         }
     };
 
+    const loadCurrentUser = async () => {
+        try {
+            const response = await fetch("/api/auth/me");
+            if (!response.ok) {
+                setCurrentUser(null);
+                return;
+            }
+
+            const data = (await response.json()) as CurrentUser;
+            setCurrentUser(data);
+        } catch {
+            setCurrentUser(null);
+        }
+    };
+
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         void loadPosts();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        void loadCurrentUser();
     }, []);
 
     const resetForm = () => {
         setTitle("");
         setContent("");
+        setImageUrl("");
+        setVisibility("public");
         setEditId(null);
     };
 
@@ -51,11 +73,16 @@ export function useBlogPosts() {
                 const payload: UpdatePostPayload = {
                     title: trimmedTitle,
                     content: trimmedContent,
+                    visibility,
+                    imageUrl,
                 };
 
                 const response = await fetch(`/api/posts/${editId}`, {
                     method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-blog-user-email": currentUser?.email || "",
+                    },
                     body: JSON.stringify(payload),
                 });
 
@@ -72,11 +99,19 @@ export function useBlogPosts() {
             const payload: CreatePostPayload = {
                 title: trimmedTitle,
                 content: trimmedContent,
+                authorId: currentUser?.id,
+                authorName: currentUser?.name,
+                authorEmail: currentUser?.email,
+                visibility,
+                imageUrl,
             };
 
             const response = await fetch("/api/posts", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-blog-user-email": currentUser?.email || "",
+                },
                 body: JSON.stringify(payload),
             });
 
@@ -96,6 +131,8 @@ export function useBlogPosts() {
         setEditId(post.id);
         setTitle(post.title);
         setContent(post.content);
+        setImageUrl(post.imageUrl || "");
+        setVisibility(post.visibility || "public");
         setStatus("Editing. Save your change.");
     };
 
@@ -103,6 +140,9 @@ export function useBlogPosts() {
         try {
             const response = await fetch(`/api/posts/${postId}`, {
                 method: "DELETE",
+                headers: {
+                    "x-blog-user-email": currentUser?.email || "",
+                },
             });
 
             if (!response.ok) {
@@ -120,11 +160,37 @@ export function useBlogPosts() {
         }
     };
 
+    const handleReact = async (postId: number) => {
+        try {
+            const response = await fetch(`/api/posts/${postId}/react`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-blog-user-email": currentUser?.email || "",
+                },
+                body: JSON.stringify({ userId: currentUser?.id }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Reaction failed");
+            }
+
+            await loadPosts();
+            setStatus("Reaction updated.");
+        } catch {
+            setStatus("Failed to update reaction.");
+        }
+    };
+
     return {
         title,
         setTitle,
         content,
         setContent,
+        imageUrl,
+        setImageUrl,
+        visibility,
+        setVisibility,
         posts,
         editId,
         status,
@@ -132,5 +198,7 @@ export function useBlogPosts() {
         handleSubmit,
         handleEdit,
         handleDelete,
+        handleReact,
+        currentUser,
     };
 }

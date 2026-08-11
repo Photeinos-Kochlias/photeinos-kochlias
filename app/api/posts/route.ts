@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
 
 export async function GET() {
     try {
+        const session = await auth();
         const client = await getMongoClient();
         const db = client.db(getDatabaseName());
         const posts = await db
@@ -11,12 +13,28 @@ export async function GET() {
             .sort({ createdAt: -1 })
             .toArray();
 
+        const visiblePosts = posts.filter((post) => {
+            const isOwner = session?.user?.email && post.authorEmail === session.user.email;
+            if (isOwner) {
+                return true;
+            }
+            return post.visibility === "public";
+        });
+
         return NextResponse.json(
-            posts.map((post) => ({
+            visiblePosts.map((post) => ({
                 id: post.id,
                 title: post.title,
                 content: post.content,
                 createdAt: post.createdAt,
+                authorId: post.authorId,
+                authorName: post.authorName,
+                authorUsername: post.authorUsername,
+                visibility: post.visibility,
+                imageUrl: post.imageUrl,
+                likes: post.likes ?? 0,
+                likedBy: post.likedBy ?? [],
+                replies: post.replies ?? [],
             })),
         );
     } catch (error) {
@@ -38,6 +56,15 @@ export async function POST(request: Request) {
             id: Date.now(),
             title: body.title,
             content: body.content,
+            authorId: body.authorId || "guest",
+            authorName: body.authorName || "Anonymous",
+            authorUsername: body.authorUsername || "",
+            authorEmail: body.authorEmail || "",
+            visibility: body.visibility || "public",
+            imageUrl: body.imageUrl || "",
+            likes: 0,
+            likedBy: [],
+            replies: [],
             createdAt: new Date().toLocaleDateString("ja-JP", {
                 year: "numeric",
                 month: "short",

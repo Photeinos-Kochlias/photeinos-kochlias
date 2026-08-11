@@ -3,10 +3,14 @@ import type { FormEvent } from "react";
 type BlogPostFormProps = {
     title: string;
     content: string;
+    imageUrl: string;
+    visibility: "public" | "private" | "followers";
     editId: number | null;
     status: string;
     onTitleChange: (value: string) => void;
     onContentChange: (value: string) => void;
+    onImageUrlChange: (value: string) => void;
+    onVisibilityChange: (value: "public" | "private" | "followers") => void;
     onSubmit: (event: FormEvent<HTMLFormElement>) => void;
     onCancel: () => void;
 };
@@ -14,10 +18,14 @@ type BlogPostFormProps = {
 export function BlogPostForm({
     title,
     content,
+    imageUrl,
+    visibility,
     editId,
     status,
     onTitleChange,
     onContentChange,
+    onImageUrlChange,
+    onVisibilityChange,
     onSubmit,
     onCancel,
 }: BlogPostFormProps) {
@@ -38,7 +46,7 @@ export function BlogPostForm({
 
             <label className="mb-4 block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">
-                    タイトル
+                    Title
                 </span>
                 <input
                     value={title}
@@ -50,7 +58,7 @@ export function BlogPostForm({
 
             <label className="mb-6 block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">
-                    本文
+                    Article
                 </span>
                 <textarea
                     value={content}
@@ -60,7 +68,32 @@ export function BlogPostForm({
                     className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                 />
             </label>
+            <label className="mb-4 block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">
+                    画像 URL
+                </span>
+                <input
+                    value={imageUrl}
+                    onChange={(event) => onImageUrlChange(event.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                />
+            </label>
 
+            <label className="mb-6 block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">
+                    公開設定
+                </span>
+                <select
+                    value={visibility}
+                    onChange={(event) => onVisibilityChange(event.target.value as "public" | "private" | "followers")}
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                >
+                    <option value="public">公開</option>
+                    <option value="followers">フォロワーのみ</option>
+                    <option value="private">非公開</option>
+                </select>
+            </label>
             <div className="flex flex-wrap gap-3">
                 <button
                     type="submit"

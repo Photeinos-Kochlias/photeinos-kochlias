@@ -35,3 +35,7 @@ export async function getMongoClient() {
 export function getDatabaseName() {
     return process.env.MONGODB_DB || "blog";
 }
+
+const defaultMongoPromise = (async () => getMongoClient())();
+
+export default defaultMongoPromise;
