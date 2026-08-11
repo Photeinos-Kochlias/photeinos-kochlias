@@ -2,7 +2,8 @@ import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { FollowButton } from "@/component/ui/blog/FollowButton";
+import { FollowButton } from "../../../component/ui/blog/FollowButton";
+import { Post } from "../../../component/ui/blog/types";
 
 async function getProfile(username: string) {
     const client = await getMongoClient();
@@ -10,11 +11,12 @@ async function getProfile(username: string) {
     return db.collection("profiles").findOne({ username });
 }
 
-async function getPostsByAuthor(username: string) {
+async function getPostsByAuthor(username: string): Promise<Post[]> {
     const client = await getMongoClient();
     const db = client.db(getDatabaseName());
+
     return db
-        .collection("posts")
+        .collection<Post>("posts")
         .find({ authorUsername: username })
         .sort({ createdAt: -1 })
         .toArray();
@@ -84,7 +86,7 @@ export default async function ProfilePage({
                         <h2 className="text-xl font-semibold">Recent posts</h2>
                         <div className="mt-4 space-y-3">
                             {posts.length ? (
-                                posts.map((post: any) => (
+                                posts.map((post: Post) => (
                                     <div
                                         key={post.id}
                                         className="rounded-xl border border-white/10 bg-slate-800/70 p-4"
