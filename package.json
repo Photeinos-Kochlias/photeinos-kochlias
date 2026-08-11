@@ -1,30 +1,28 @@
 {
-  "name": "photeinos-kochlias",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "./node_modules/.bin/next dev",
-    "build": "./node_modules/.bin/next build",
-    "start": "./node_modules/.bin/next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@auth/mongodb-adapter": "^2.0.0",
-    "mongodb": "^7.5.0",
-    "next": "^16.3.0",
-    "next-auth": "^4.24.11",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.0",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
+    "name": "photeinos-kochlias",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "./node_modules/.bin/next dev",
+        "build": "./node_modules/.bin/next build",
+        "start": "./node_modules/.bin/next start",
+        "lint": "eslint"
+    },
+    "dependencies": {
+        "mongodb": "^7.5.0",
+        "next": "^16.3.0",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4",
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "babel-plugin-react-compiler": "1.0.0",
+        "eslint": "^9",
+        "eslint-config-next": "16.3.0",
+        "tailwindcss": "^4",
+        "typescript": "^5"
+    }
 }
