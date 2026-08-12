@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "BlogHome",
+    title: "MURMUR",
     description: "not yet", //!must update
 };
 
