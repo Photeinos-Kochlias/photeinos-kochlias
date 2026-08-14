@@ -69,6 +69,7 @@ export function BlogPostList({ posts, currentUserId, onEdit, onDelete, onReact }
                             <span>返信: {post.replies?.length || 0}</span>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2">
+                            {currentUserId && post.authorId === currentUserId ? (
                             <button
                                 type="button"
                                 onClick={() => onEdit(post)}
@@ -76,6 +77,7 @@ export function BlogPostList({ posts, currentUserId, onEdit, onDelete, onReact }
                             >
                                 edit
                             </button>
+                            ) : null}
                             <Link
                                 href={`/post/${post.id}`}
                                 className="rounded-full border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
