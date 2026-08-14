@@ -15,14 +15,18 @@ export function ProfilePanel({
     profile,
     onProfileSaved,
 }: ProfilePanelProps) {
-    const [displayName, setDisplayName] = useState(profile?.displayName || "");
-    const [bio, setBio] = useState(profile?.bio || "");
-    const [avatarUrl, setAvatarUrl] = useState(profile?.avatarUrl || "");
-    const [isPublic, setIsPublic] = useState(profile?.isPublic ?? true);
-    const [status, setStatus] = useState("Profile ready");
-    const [followCount, setFollowCount] = useState(0);
-    const [profileName, setProfileName] = useState(currentUser?.name || "");
     const router = useRouter();
+
+    const [isEditing, setIsEditing] = useState(false);
+
+    const [displayName, setDisplayName] = useState("");
+    const [bio, setBio] = useState("");
+    const [avatarUrl, setAvatarUrl] = useState("");
+    const [isPublic, setIsPublic] = useState(true);
+
+    const [status, setStatus] = useState("Profile ready");
+
+    const [followCount, setFollowCount] = useState(0);
 
     useEffect(() => {
         setDisplayName(profile?.displayName || "");
@@ -30,8 +34,7 @@ export function ProfilePanel({
         setAvatarUrl(profile?.avatarUrl || "");
         setIsPublic(profile?.isPublic ?? true);
         setFollowCount(profile?.followers?.length || 0);
-        setProfileName(currentUser?.name || profile?.displayName || "");
-    }, [currentUser, profile]);
+    }, [profile]);
 
     const saveProfile = async () => {
         if (!currentUser) {
@@ -39,9 +42,12 @@ export function ProfilePanel({
             return;
         }
 
-        const nextDisplayName = displayName.trim() || currentUser.name || "User";
+        const nextDisplayName =
+            displayName.trim() || currentUser.name || "User";
 
         try {
+            setStatus("Saving...");
+
             const response = await fetch("/api/profile", {
                 method: "POST",
                 headers: {
@@ -52,11 +58,13 @@ export function ProfilePanel({
                     userId: currentUser.id,
                     username:
                         profile?.username ||
-                        currentUser.name.toLowerCase().replace(/\s+/g, "-"),
+                        currentUser.name
+                            .toLowerCase()
+                            .replace(/\s+/g, "-"),
                     email: currentUser.email,
                     displayName: nextDisplayName,
-                    bio,
-                    avatarUrl,
+                    bio: bio.trim(),
+                    avatarUrl: avatarUrl.trim(),
                     isPublic,
                     followers: profile?.followers || [],
                     following: profile?.following || [],
@@ -64,15 +72,37 @@ export function ProfilePanel({
             });
 
             if (!response.ok) {
-                throw new Error("Save failed");
+                const data = await response.json().catch(() => null);
+
+                throw new Error(
+                    data?.error || "Failed to save profile",
+                );
             }
 
-            setProfileName(nextDisplayName);
-            setStatus("Profile saved");
+            setStatus("Profile saved.");
+
+            setIsEditing(false);
+
             onProfileSaved();
-        } catch {
-            setStatus("Failed to save profile");
+        } catch (error) {
+            console.error(error);
+
+            setStatus(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to save profile.",
+            );
         }
+    };
+
+    const cancelEdit = () => {
+        setDisplayName(profile?.displayName || "");
+        setBio(profile?.bio || "");
+        setAvatarUrl(profile?.avatarUrl || "");
+        setIsPublic(profile?.isPublic ?? true);
+
+        setStatus("Profile ready.");
+        setIsEditing(false);
     };
 
     const deleteAccount = async () => {
@@ -81,7 +111,10 @@ export function ProfilePanel({
             return;
         }
 
-        const confirmed = window.confirm("Delete this account and all related content?");
+        const confirmed = window.confirm(
+            "Delete this account and all related content?",
+        );
+
         if (!confirmed) {
             return;
         }
@@ -96,103 +129,231 @@ export function ProfilePanel({
             }
 
             localStorage.removeItem("blog-user-email");
+
             router.replace("/login");
-        } catch {
-            setStatus("Failed to delete account");
+        } catch (error) {
+            console.error(error);
+
+            setStatus("Failed to delete account.");
         }
     };
 
+    const profileDisplayName =
+        profile?.displayName ||
+        currentUser?.name ||
+        "Anonymous";
+
+    const initial = profileDisplayName
+        .charAt(0)
+        .toUpperCase();
+
     return (
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-                <div>
-                    <p className="text-sm font-semibold text-sky-600">
-                        Profile
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold">My profile</h2>
-                </div>
-            </div>
+            {/* =========================
+                Profile header
+            ========================= */}
 
-            <div className="mt-6 space-y-4">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-sm font-semibold text-slate-700">
-                        Current user
-                    </p>
-                    <p className="mt-1 text-lg font-semibold">
-                        {profileName || currentUser?.name || "No user selected"}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                        {currentUser?.email || ""}
-                    </p>
-                    <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-                        <span className="rounded-full bg-white px-3 py-1">
-                            Followers {followCount}
-                        </span>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-2xl font-semibold text-white">
+                        {profile?.avatarUrl ? (
+                            <img
+                                src={profile.avatarUrl}
+                                alt={profileDisplayName}
+                                className="h-full w-full object-cover"
+                            />
+                        ) : (
+                            initial
+                        )}
+                    </div>
+
+                    <div>
+                        <p className="text-sm font-semibold text-sky-600">
+                            Profile
+                        </p>
+
+                        <h2 className="mt-1 text-2xl font-semibold text-slate-900">
+                            {profileDisplayName}
+                        </h2>
+
+                        {profile?.username ? (
+                            <p className="mt-1 text-sm text-slate-500">
+                                @{profile.username}
+                            </p>
+                        ) : null}
+
+                        <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-600">
+                            <span className="rounded-full bg-slate-100 px-3 py-1">
+                                Followers {followCount}
+                            </span>
+
+                            <span className="rounded-full bg-slate-100 px-3 py-1">
+                                {profile?.isPublic
+                                    ? "Public"
+                                    : "Private"}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
-                <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">
-                        Display name
-                    </span>
-                    <input
-                        value={displayName}
-                        onChange={(event) => setDisplayName(event.target.value)}
-                        className="w-full rounded-2xl border border-slate-300 px-4 py-3"
-                    />
-                </label>
+                {/* Edit button */}
 
-                <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">
-                        Bio
-                    </span>
-                    <textarea
-                        value={bio}
-                        onChange={(event) => setBio(event.target.value)}
-                        rows={4}
-                        className="w-full rounded-2xl border border-slate-300 px-4 py-3"
-                    />
-                </label>
-
-                <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">
-                        Avatar URL
-                    </span>
-                    <input
-                        value={avatarUrl}
-                        onChange={(event) => setAvatarUrl(event.target.value)}
-                        className="w-full rounded-2xl border border-slate-300 px-4 py-3"
-                    />
-                </label>
-
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                    <input
-                        type="checkbox"
-                        checked={isPublic}
-                        onChange={() => setIsPublic((value) => !value)}
-                    />
-                    Public profile
-                </label>
-
-                <div className="flex flex-wrap gap-3">
+                {!isEditing ? (
                     <button
                         type="button"
-                        onClick={saveProfile}
-                        className="rounded-full bg-slate-900 px-5 py-3 font-semibold text-white"
+                        onClick={() => {
+                            setIsEditing(true);
+                            setStatus("");
+                        }}
+                        className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                     >
-                        Save profile
+                        Edit profile
                     </button>
-                    <button
-                        type="button"
-                        onClick={deleteAccount}
-                        className="rounded-full border border-rose-300 px-5 py-3 font-semibold text-rose-700"
-                    >
-                        Delete account
-                    </button>
-                </div>
-                <p className="text-sm text-slate-500">{status}</p>
+                ) : null}
             </div>
+
+            {/* =========================
+                Normal profile view
+                ========================= */}
+
+            {!isEditing ? (
+                <div className="mt-6 space-y-4">
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-700">
+                            Bio
+                        </p>
+
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">
+                            {profile?.bio || "No bio yet."}
+                        </p>
+                    </div>
+
+                    {currentUser?.email ? (
+                        <div className="rounded-2xl bg-slate-50 p-4">
+                            <p className="text-sm font-semibold text-slate-700">
+                                Email
+                            </p>
+
+                            <p className="mt-1 text-sm text-slate-500">
+                                {currentUser.email}
+                            </p>
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
+
+            {/* =========================
+                Edit mode
+                ========================= */}
+
+            {isEditing ? (
+                <div className="mt-6 space-y-5">
+                    <div>
+                        <p className="text-lg font-semibold text-slate-900">
+                            Edit profile
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-500">
+                            Change your profile information.
+                        </p>
+                    </div>
+
+                    <label className="block">
+                        <span className="mb-2 block text-sm font-medium text-slate-700">
+                            Display name
+                        </span>
+
+                        <input
+                            value={displayName}
+                            onChange={(event) =>
+                                setDisplayName(
+                                    event.target.value,
+                                )
+                            }
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                        />
+                    </label>
+
+                    <label className="block">
+                        <span className="mb-2 block text-sm font-medium text-slate-700">
+                            Bio
+                        </span>
+
+                        <textarea
+                            value={bio}
+                            onChange={(event) =>
+                                setBio(event.target.value)
+                            }
+                            rows={5}
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                        />
+                    </label>
+
+                    <label className="block">
+                        <span className="mb-2 block text-sm font-medium text-slate-700">
+                            Avatar URL
+                        </span>
+
+                        <input
+                            value={avatarUrl}
+                            onChange={(event) =>
+                                setAvatarUrl(
+                                    event.target.value,
+                                )
+                            }
+                            placeholder="https://example.com/avatar.jpg"
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                        />
+                    </label>
+
+                    <label className="flex items-center gap-3 text-sm text-slate-700">
+                        <input
+                            type="checkbox"
+                            checked={isPublic}
+                            onChange={() =>
+                                setIsPublic(
+                                    (value) => !value,
+                                )
+                            }
+                            className="h-4 w-4"
+                        />
+
+                        <span>Public profile</span>
+                    </label>
+
+                    {status ? (
+                        <p className="text-sm text-slate-500">
+                            {status}
+                        </p>
+                    ) : null}
+
+                    <div className="flex flex-wrap gap-3">
+                        <button
+                            type="button"
+                            onClick={() => void saveProfile()}
+                            className="rounded-full bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-700"
+                        >
+                            Save profile
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="rounded-full border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 transition hover:bg-slate-100"
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => void deleteAccount()}
+                            className="rounded-full border border-rose-300 px-5 py-3 font-semibold text-rose-700 transition hover:bg-rose-50"
+                        >
+                            Delete account
+                        </button>
+                    </div>
+                </div>
+            ) : null}
         </section>
     );
 }
-
