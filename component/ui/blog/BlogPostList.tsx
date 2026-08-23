@@ -2,20 +2,32 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { Post } from "./types";
+
+import type {
+    Post,
+    Visibility,
+} from "./types";
 
 type BlogPostListProps = {
     posts: Post[];
+
     currentUserId: string | null;
+
     onUpdate: (
         postId: number,
         title: string,
         content: string,
-        visibility: "public" | "private" | "followers",
+        visibility: Visibility,
         imageUrl: string,
     ) => Promise<boolean>;
-    onDelete: (postId: number) => void;
-    onReact: (postId: number) => void;
+
+    onDelete: (
+        postId: number,
+    ) => void;
+
+    onReact: (
+        postId: number,
+    ) => void;
 };
 
 export function BlogPostList({
@@ -25,37 +37,62 @@ export function BlogPostList({
     onDelete,
     onReact,
 }: BlogPostListProps) {
-    const [editingId, setEditingId] = useState<number | null>(null);
-
-    const [editTitle, setEditTitle] = useState("");
-    const [editContent, setEditContent] = useState("");
-    const [editImageUrl, setEditImageUrl] = useState("");
-    const [editVisibility, setEditVisibility] = useState<
-        "public" | "private" | "followers"
-    >("public");
-
-    const [editStatus, setEditStatus] = useState("");
-
-    // Likeクリック直後のアニメーション用
-    const [likedPostId, setLikedPostId] = useState<number | null>(null);
-
-    // Delete確認用
-    const [deleteTargetId, setDeleteTargetId] = useState<number | null>(
+    const [
+        editingId,
+        setEditingId,
+    ] = useState<number | null>(
         null,
     );
 
-    /*
-     * =========================
-     * Edit
-     * =========================
-     */
+    const [
+        editTitle,
+        setEditTitle,
+    ] = useState("");
 
-    const startEdit = (post: Post) => {
+    const [
+        editContent,
+        setEditContent,
+    ] = useState("");
+
+    const [
+        editImageUrl,
+        setEditImageUrl,
+    ] = useState("");
+
+    const [
+        editVisibility,
+        setEditVisibility,
+    ] = useState<Visibility>(
+        "public",
+    );
+
+    const [
+        editStatus,
+        setEditStatus,
+    ] = useState("");
+
+    const startEdit = (
+        post: Post,
+    ) => {
         setEditingId(post.id);
-        setEditTitle(post.title || "");
-        setEditContent(post.content);
-        setEditImageUrl(post.imageUrl || "");
-        setEditVisibility(post.visibility || "public");
+
+        setEditTitle(
+            post.title || "",
+        );
+
+        setEditContent(
+            post.content,
+        );
+
+        setEditImageUrl(
+            post.imageUrl || "",
+        );
+
+        setEditVisibility(
+            post.visibility ||
+                "public",
+        );
+
         setEditStatus("");
     };
 
@@ -64,138 +101,113 @@ export function BlogPostList({
         setEditTitle("");
         setEditContent("");
         setEditImageUrl("");
-        setEditVisibility("public");
+        setEditVisibility(
+            "public",
+        );
         setEditStatus("");
     };
 
-    const saveEdit = async (postId: number) => {
-        const title = editTitle.trim();
-        const content = editContent.trim();
+    const saveEdit = async (
+        postId: number,
+    ) => {
+        const title =
+            editTitle.trim();
 
+        const content =
+            editContent.trim();
+
+        const imageUrl =
+            editImageUrl.trim();
+
+        /*
+         * タイトルは任意
+         */
         if (!content) {
-            setEditStatus("Article is required.");
+            setEditStatus(
+                "Article is required.",
+            );
+
             return;
         }
 
-        setEditStatus("Saving...");
-
-        const success = await onUpdate(
-            postId,
-            title,
-            content,
-            editVisibility,
-            editImageUrl.trim(),
+        setEditStatus(
+            "Saving...",
         );
 
+        const success =
+            await onUpdate(
+                postId,
+                title,
+                content,
+                editVisibility,
+                imageUrl,
+            );
+
         if (success) {
-            setEditStatus("Saved.");
+            setEditStatus(
+                "Saved.",
+            );
+
             setEditingId(null);
         } else {
-            setEditStatus("Failed to save.");
-        }
-    };
-
-    /*
-     * =========================
-     * Like
-     * =========================
-     */
-
-    const handleLike = (postId: number) => {
-        // クリックした投稿をアニメーション対象にする
-        setLikedPostId(postId);
-
-        // 実際のLike処理
-        onReact(postId);
-
-        // 0.5秒後にアニメーションだけ解除
-        // Like状態そのものは解除しない
-        window.setTimeout(() => {
-            setLikedPostId((current) =>
-                current === postId ? null : current,
+            setEditStatus(
+                "Failed to save.",
             );
-        }, 500);
-    };
-
-    /*
-     * =========================
-     * Delete
-     * =========================
-     */
-
-    const handleDeleteClick = (postId: number) => {
-        setDeleteTargetId(postId);
-    };
-
-    const handleDeleteConfirm = () => {
-        if (deleteTargetId === null) {
-            return;
         }
-
-        onDelete(deleteTargetId);
-        setDeleteTargetId(null);
-    };
-
-    const handleDeleteCancel = () => {
-        setDeleteTargetId(null);
     };
 
     return (
-        <>
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                {/* =========================
-                    Header
-                ========================= */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-6 flex items-center justify-between">
+                <div>
+                    <p className="text-sm font-semibold text-sky-600">
+                        Latest article
+                    </p>
 
-                <div className="mb-6 flex items-center justify-between">
-                    <div>
-                        <p className="text-sm font-semibold text-sky-600">
-                            Latest article
-                        </p>
-
-                        <h2 className="mt-2 text-2xl font-semibold">
-                            Posts
-                        </h2>
-                    </div>
-
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-                        {posts.length} posts
-                    </span>
+                    <h2 className="mt-2 text-2xl font-semibold">
+                        Posts
+                    </h2>
                 </div>
 
-                {/* =========================
-                    Posts
-                ========================= */}
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
+                    {posts.length} posts
+                </span>
+            </div>
 
-                <div className="space-y-4">
-                    {posts.map((post) => {
-                        const isEditing = editingId === post.id;
+            <div className="space-y-4">
+                {posts.map(
+                    (post) => {
+                        const isEditing =
+                            editingId ===
+                            post.id;
 
                         const isOwner =
-                            currentUserId !== null &&
-                            post.authorId === currentUserId;
+                            currentUserId !==
+                                null &&
+                            post.authorId ===
+                                currentUserId;
 
-                        /*
-                         * 現在ログインしているユーザーが
-                         * この投稿にLikeしているか
-                         */
-                        const isLiked =
-                            currentUserId !== null &&
-                            Array.isArray(post.likedBy) &&
-                            post.likedBy.includes(currentUserId);
-
-                        /*
-                         * Likeクリック直後の演出中か
-                         */
-                        const isLikeAnimating =
-                            likedPostId === post.id;
+                        const liked =
+                            currentUserId !==
+                                null &&
+                            Array.isArray(
+                                post.likedBy,
+                            ) &&
+                            post.likedBy.includes(
+                                currentUserId,
+                            );
 
                         return (
                             <article
-                                key={post.id}
+                                key={
+                                    post.id
+                                }
                                 onClick={() => {
-                                    if (!isEditing) {
-                                        window.location.href = `/post/${post.id}`;
+                                    if (
+                                        !isEditing
+                                    ) {
+                                        window.location.href =
+                                            `/post/${post.id}`;
                                     }
                                 }}
                                 className={`rounded-2xl border border-slate-200 bg-slate-50 p-4 transition ${
@@ -204,15 +216,16 @@ export function BlogPostList({
                                         : "cursor-pointer hover:border-slate-300 hover:bg-white hover:shadow-md"
                                 }`}
                             >
-                                {/* =========================
-                                    Header
-                                ========================= */}
-
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex items-start gap-3">
                                         <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-semibold text-white">
-                                            {(post.authorName || "A")
-                                                .charAt(0)
+                                            {(
+                                                post.authorName ||
+                                                "A"
+                                            )
+                                                .charAt(
+                                                    0,
+                                                )
                                                 .toUpperCase()}
                                         </div>
 
@@ -230,42 +243,42 @@ export function BlogPostList({
                                     </div>
 
                                     <span className="text-sm text-slate-500">
-                                        {post.createdAt}
+                                        {
+                                            post.createdAt
+                                        }
                                     </span>
                                 </div>
-
-                                {/* =========================
-                                    Edit mode
-                                ========================= */}
 
                                 {isEditing ? (
                                     <div
                                         className="mt-5 space-y-4"
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                        }}
+                                        onClick={(
+                                            event,
+                                        ) =>
+                                            event.stopPropagation()
+                                        }
                                     >
-                                        {/* Title */}
-
                                         <label className="block">
                                             <span className="mb-2 block text-sm font-medium text-slate-700">
                                                 Title
                                             </span>
 
                                             <input
-                                                value={editTitle}
-                                                onChange={(event) =>
+                                                value={
+                                                    editTitle
+                                                }
+                                                onChange={(
+                                                    event,
+                                                ) =>
                                                     setEditTitle(
-                                                        event.target
+                                                        event
+                                                            .target
                                                             .value,
                                                     )
                                                 }
-                                                placeholder="Optional"
                                                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                                             />
                                         </label>
-
-                                        {/* Article */}
 
                                         <label className="block">
                                             <span className="mb-2 block text-sm font-medium text-slate-700">
@@ -273,19 +286,24 @@ export function BlogPostList({
                                             </span>
 
                                             <textarea
-                                                value={editContent}
-                                                onChange={(event) =>
+                                                value={
+                                                    editContent
+                                                }
+                                                onChange={(
+                                                    event,
+                                                ) =>
                                                     setEditContent(
-                                                        event.target
+                                                        event
+                                                            .target
                                                             .value,
                                                     )
                                                 }
-                                                rows={8}
+                                                rows={
+                                                    8
+                                                }
                                                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                                             />
                                         </label>
-
-                                        {/* Image URL */}
 
                                         <label className="block">
                                             <span className="mb-2 block text-sm font-medium text-slate-700">
@@ -293,19 +311,21 @@ export function BlogPostList({
                                             </span>
 
                                             <input
-                                                value={editImageUrl}
-                                                onChange={(event) =>
+                                                value={
+                                                    editImageUrl
+                                                }
+                                                onChange={(
+                                                    event,
+                                                ) =>
                                                     setEditImageUrl(
-                                                        event.target
+                                                        event
+                                                            .target
                                                             .value,
                                                     )
                                                 }
-                                                placeholder="https://example.com/image.jpg"
                                                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                                             />
                                         </label>
-
-                                        {/* Visibility */}
 
                                         <label className="block">
                                             <span className="mb-2 block text-sm font-medium text-slate-700">
@@ -316,13 +336,13 @@ export function BlogPostList({
                                                 value={
                                                     editVisibility
                                                 }
-                                                onChange={(event) =>
+                                                onChange={(
+                                                    event,
+                                                ) =>
                                                     setEditVisibility(
-                                                        event.target
-                                                            .value as
-                                                            | "public"
-                                                            | "private"
-                                                            | "followers",
+                                                        event
+                                                            .target
+                                                            .value as Visibility,
                                                     )
                                                 }
                                                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
@@ -341,15 +361,13 @@ export function BlogPostList({
                                             </select>
                                         </label>
 
-                                        {/* Status */}
-
                                         {editStatus ? (
                                             <p className="text-sm text-slate-500">
-                                                {editStatus}
+                                                {
+                                                    editStatus
+                                                }
                                             </p>
                                         ) : null}
-
-                                        {/* Buttons */}
 
                                         <div className="flex flex-wrap gap-2">
                                             <button
@@ -366,7 +384,9 @@ export function BlogPostList({
 
                                             <button
                                                 type="button"
-                                                onClick={cancelEdit}
+                                                onClick={
+                                                    cancelEdit
+                                                }
                                                 className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                                             >
                                                 Cancel
@@ -375,36 +395,24 @@ export function BlogPostList({
                                     </div>
                                 ) : (
                                     <>
-                                        {/* =========================
-                                            Content
-                                        ========================= */}
-
-                                        <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-700">
-                                            {post.content}
+                                        <p className="mt-2 text-sm leading-7 text-slate-700">
+                                            {
+                                                post.content
+                                            }
                                         </p>
-
-                                        {/* Image */}
 
                                         {post.imageUrl ? (
                                             <img
-                                                src={post.imageUrl}
+                                                src={
+                                                    post.imageUrl
+                                                }
                                                 alt={
                                                     post.title ||
                                                     "Post image"
                                                 }
                                                 className="mt-4 h-48 w-full rounded-2xl object-cover"
-                                                onError={(
-                                                    event,
-                                                ) => {
-                                                    event.currentTarget.style.display =
-                                                        "none";
-                                                }}
                                             />
                                         ) : null}
-
-                                        {/* =========================
-                                            Meta
-                                        ========================= */}
 
                                         <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-600">
                                             {post.authorUsername ? (
@@ -412,9 +420,9 @@ export function BlogPostList({
                                                     href={`/profile/${post.authorUsername}`}
                                                     onClick={(
                                                         event,
-                                                    ) => {
-                                                        event.stopPropagation();
-                                                    }}
+                                                    ) =>
+                                                        event.stopPropagation()
+                                                    }
                                                     className="text-sky-600 underline"
                                                 >
                                                     {
@@ -425,35 +433,37 @@ export function BlogPostList({
 
                                             <span>
                                                 公開:{" "}
-                                                {post.visibility ||
-                                                    "public"}
+                                                {
+                                                    post.visibility
+                                                }
                                             </span>
 
                                             <span>
                                                 いいね:{" "}
-                                                {post.likes || 0}
+                                                {
+                                                    post.likes
+                                                }
                                             </span>
 
                                             <span>
                                                 返信:{" "}
-                                                {post.replies
-                                                    ?.length ||
-                                                    0}
+                                                {
+                                                    post
+                                                        .replies
+                                                        ?.length ||
+                                                    0
+                                                }
                                             </span>
                                         </div>
 
-                                        {/* =========================
-                                            Actions
-                                        ========================= */}
-
                                         <div
                                             className="mt-4 flex flex-wrap gap-2"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                            }}
+                                            onClick={(
+                                                event,
+                                            ) =>
+                                                event.stopPropagation()
+                                            }
                                         >
-                                            {/* Edit */}
-
                                             {isOwner ? (
                                                 <button
                                                     type="button"
@@ -468,70 +478,41 @@ export function BlogPostList({
                                                 </button>
                                             ) : null}
 
-                                            {/* Reply */}
-
                                             <Link
                                                 href={`/post/${post.id}`}
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                }}
+                                                onClick={(
+                                                    event,
+                                                ) =>
+                                                    event.stopPropagation()
+                                                }
                                                 className="rounded-full border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                                             >
                                                 reply
                                             </Link>
 
-                                            {/* Like */}
-
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    handleLike(
+                                                    onReact(
                                                         post.id,
                                                     )
                                                 }
-                                                className={`relative overflow-hidden rounded-full px-3 py-2 text-sm font-semibold transition-all duration-200 ${
-                                                    isLiked
-                                                        ? "bg-pink-600 text-white shadow-md shadow-pink-200"
+                                                className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+                                                    liked
+                                                        ? "bg-pink-500 text-white hover:bg-pink-400"
                                                         : "bg-amber-500 text-white hover:bg-amber-400"
-                                                } ${
-                                                    isLikeAnimating
-                                                        ? "scale-110"
-                                                        : "scale-100"
                                                 }`}
                                             >
-                                                <span
-                                                    className={`inline-block transition-transform duration-300 ${
-                                                        isLikeAnimating
-                                                            ? "scale-125"
-                                                            : "scale-100"
-                                                    }`}
-                                                >
-                                                    {isLiked
-                                                        ? "♥"
-                                                        : "♡"}
-                                                </span>
-
-                                                <span className="ml-1">
-                                                    {post.likes || 0}
-                                                </span>
-
-                                                {/* Like animation */}
-
-                                                {isLikeAnimating ? (
-                                                    <span
-                                                        className="pointer-events-none absolute inset-0 animate-ping rounded-full bg-pink-300 opacity-50"
-                                                        aria-hidden="true"
-                                                    />
-                                                ) : null}
+                                                {liked
+                                                    ? "liked"
+                                                    : "like"}
                                             </button>
-
-                                            {/* Delete */}
 
                                             {isOwner ? (
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        handleDeleteClick(
+                                                        onDelete(
                                                             post.id,
                                                         )
                                                     }
@@ -545,63 +526,9 @@ export function BlogPostList({
                                 )}
                             </article>
                         );
-                    })}
-                </div>
+                    },
+                )}
             </div>
-
-            {/*
-            //*=========================
-            //*Delete confirmation modal
-            //*=========================
-            */}
-
-            {deleteTargetId !== null ? (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm"
-                    onClick={handleDeleteCancel}
-                >
-                    <div
-                        className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
-                        onClick={(event) => {
-                            event.stopPropagation();
-                        }}
-                    >
-                        <div className="mb-5">
-                            <p className="text-sm font-semibold text-rose-600">
-                                Delete post
-                            </p>
-
-                            <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-                                Delete this post?
-                            </h2>
-
-                            <p className="mt-3 text-sm leading-6 text-slate-600">
-                                This action cannot be undone. The post
-                                and its contents will be permanently
-                                deleted.
-                            </p>
-                        </div>
-
-                        <div className="flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={handleDeleteCancel}
-                                className="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                            >
-                                Cancel
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={handleDeleteConfirm}
-                                className="rounded-full bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-500"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
-        </>
+        </div>
     );
 }

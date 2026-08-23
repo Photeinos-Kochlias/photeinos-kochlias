@@ -1,9 +1,25 @@
-export type PostReply = {
-    id: number;
-    content: string;
-    authorId?: string;
-    authorName?: string;
-    createdAt: string;
+export type Visibility =
+    | "public"
+    | "private"
+    | "followers";
+
+export type CurrentUser = {
+    id: string;
+    name: string;
+    email: string;
+    username?: string;
+};
+
+export type Profile = {
+    userId: string;
+    username?: string;
+    email?: string;
+    displayName: string;
+    bio: string;
+    avatarUrl: string;
+    isPublic: boolean;
+    followers?: string[];
+    following?: string[];
 };
 
 export type Post = {
@@ -12,63 +28,37 @@ export type Post = {
     content: string;
     createdAt: string;
 
-    authorId?: string;
-    authorName?: string;
+    authorId: string;
+    authorName: string;
     authorUsername?: string;
-    authorAvatarUrl?: string;
+    authorEmail?: string;
 
-    visibility?: "public" | "private" | "followers";
+    visibility: Visibility;
 
     imageUrl?: string;
 
     likes?: number;
     likedBy?: string[];
 
-    replies?: PostReply[];
+    replies?: unknown[];
 };
 
 export type CreatePostPayload = {
-    title?: string;
+    title: string;
     content: string;
 
-    authorId?: string;
-    authorName?: string;
-    authorEmail?: string;
+    authorId: string;
+    authorName: string;
+    authorEmail: string;
     authorUsername?: string;
-    authorAvatarUrl?: string;
 
-    visibility?: "public" | "private" | "followers";
-
+    visibility: Visibility;
     imageUrl?: string;
 };
 
 export type UpdatePostPayload = {
-    title?: string;
+    title: string;
     content: string;
-
-    visibility?: "public" | "private" | "followers";
-
+    visibility: Visibility;
     imageUrl?: string;
-};
-
-export type Profile = {
-    userId: string;
-
-    username?: string;
-    email?: string;
-
-    displayName: string;
-    bio: string;
-    avatarUrl: string;
-
-    isPublic: boolean;
-
-    followers?: string[];
-    following?: string[];
-};
-
-export type CurrentUser = {
-    id: string;
-    name: string;
-    email: string;
 };
