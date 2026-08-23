@@ -549,9 +549,11 @@ export function BlogPostList({
                 </div>
             </div>
 
-            {/* =========================
-                Delete confirmation modal
-            ========================= */}
+            {/*
+            //*=========================
+            //*Delete confirmation modal
+            //*=========================
+            */}
 
             {deleteTargetId !== null ? (
                 <div

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import type {
     CreatePostPayload,
     CurrentUser,
@@ -12,32 +12,33 @@ export function useBlogPosts() {
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [imageUrl, setImageUrl] = useState("");
+
     const [visibility, setVisibility] = useState<
         "public" | "private" | "followers"
     >("public");
 
     const [posts, setPosts] = useState<Post[]>([]);
+
     const [editId, setEditId] = useState<number | null>(null);
 
     const [status, setStatus] = useState("Loading posts...");
-    const [currentUser, setCurrentUser] =
-        useState<CurrentUser | null>(null);
 
-    // 投稿成功バナー
-    const [postCreatedMessage, setPostCreatedMessage] =
-        useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
     /*
-     * 投稿一覧取得
+     * =========================
+     * Load posts
+     * =========================
      */
-    const loadPosts = async () => {
+
+    const loadPosts = useCallback(async () => {
         try {
             const response = await fetch("/api/posts", {
                 cache: "no-store",
             });
 
             if (!response.ok) {
-                throw new Error("Failed to load posts");
+                throw new Error("Failed to load posts.");
             }
 
             const data = (await response.json()) as Post[];
@@ -46,46 +47,104 @@ export function useBlogPosts() {
             setStatus("Make new post.");
         } catch (error) {
             console.error(error);
+
             setStatus(
-                "Unable to load posts from the database.",
+                error instanceof Error
+                    ? error.message
+                    : "Unable to load posts from the database.",
             );
         }
-    };
+    }, []);
 
     /*
-     * 現在のユーザー取得
+     * =========================
+     * Load current user
+     * =========================
      */
-    const loadCurrentUser = async () => {
+
+    const loadCurrentUser = useCallback(async () => {
         try {
             const response = await fetch("/api/auth/me", {
                 cache: "no-store",
             });
 
             if (!response.ok) {
-                setCurrentUser(null);
-                return;
+                return null;
             }
 
             const data = (await response.json()) as CurrentUser;
 
             setCurrentUser(data);
+
+            return data;
         } catch (error) {
             console.error(error);
-            setCurrentUser(null);
+            return null;
         }
-    };
-
-    /*
-     * 初期ロード
-     */
-    useEffect(() => {
-        void loadPosts();
-        void loadCurrentUser();
     }, []);
 
     /*
-     * フォームリセット
+     * =========================
+     * Initial load
+     * =========================
      */
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const initialize = async () => {
+            try {
+                const [postsResponse, userResponse] = await Promise.all([
+                    fetch("/api/posts", {
+                        cache: "no-store",
+                    }),
+                    fetch("/api/auth/me", {
+                        cache: "no-store",
+                    }),
+                ]);
+
+                if (!cancelled) {
+                    if (postsResponse.ok) {
+                        const postsData =
+                            (await postsResponse.json()) as Post[];
+
+                        setPosts(postsData);
+                        setStatus("Make new post.");
+                    } else {
+                        setStatus("Unable to load posts from the database.");
+                    }
+
+                    if (userResponse.ok) {
+                        const userData =
+                            (await userResponse.json()) as CurrentUser;
+
+                        setCurrentUser(userData);
+                    }
+                }
+            } catch (error) {
+                if (cancelled) {
+                    return;
+                }
+
+                console.error(error);
+
+                setStatus("Unable to load application data.");
+            }
+        };
+
+        void initialize();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    /*
+     * =========================
+     * Reset form
+     * =========================
+     */
+
     const resetForm = () => {
         setTitle("");
         setContent("");
@@ -95,11 +154,12 @@ export function useBlogPosts() {
     };
 
     /*
-     * 新規投稿 / 更新
+     * =========================
+     * Create / update post
+     * =========================
      */
-    const handleSubmit = async (
-        event: FormEvent<HTMLFormElement>,
-    ) => {
+
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         const trimmedTitle = title.trim();
@@ -107,8 +167,7 @@ export function useBlogPosts() {
         const trimmedImageUrl = imageUrl.trim();
 
         /*
-         * タイトルは任意
-         * 本文だけ必須
+         * Title is optional.
          */
         if (!trimmedContent) {
             setStatus("Article is required.");
@@ -123,9 +182,10 @@ export function useBlogPosts() {
         try {
             /*
              * =========================
-             * 更新
+             * Update
              * =========================
              */
+
             if (editId !== null) {
                 const payload: UpdatePostPayload = {
                     title: trimmedTitle,
@@ -134,27 +194,19 @@ export function useBlogPosts() {
                     imageUrl: trimmedImageUrl,
                 };
 
-                const response = await fetch(
-                    `/api/posts/${editId}`,
-                    {
-                        method: "PATCH",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "x-blog-user-email":
-                                currentUser.email,
-                        },
-                        body: JSON.stringify(payload),
+                const response = await fetch(`/api/posts/${editId}`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-blog-user-email": currentUser.email,
                     },
-                );
+                    body: JSON.stringify(payload),
+                });
 
                 if (!response.ok) {
-                    const data = await response
-                        .json()
-                        .catch(() => null);
+                    const data = await response.json().catch(() => null);
 
-                    throw new Error(
-                        data?.error || "Update failed",
-                    );
+                    throw new Error(data?.error || "Update failed.");
                 }
 
                 setStatus("Post updated.");
@@ -168,9 +220,10 @@ export function useBlogPosts() {
 
             /*
              * =========================
-             * 新規投稿
+             * Create
              * =========================
              */
+
             const payload: CreatePostPayload = {
                 title: trimmedTitle,
                 content: trimmedContent,
@@ -185,56 +238,45 @@ export function useBlogPosts() {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "x-blog-user-email":
-                        currentUser.email,
+                    "x-blog-user-email": currentUser.email,
                 },
                 body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
-                const data = await response
-                    .json()
-                    .catch(() => null);
+                const data = await response.json().catch(() => null);
 
-                throw new Error(
-                    data?.error || "Create failed",
-                );
+                throw new Error(data?.error || "Create failed.");
             }
-
-            /*
-             * 投稿成功
-             */
-            setStatus("New post added.");
-
-            setPostCreatedMessage(
-                "Your new post was successfully created.",
-            );
 
             resetForm();
 
             await loadPosts();
+
+            setStatus("New post successfully created.");
         } catch (error) {
             console.error(error);
 
             setStatus(
-                error instanceof Error
-                    ? error.message
-                    : "Failed to save post.",
+                error instanceof Error ? error.message : "Failed to save post.",
             );
         }
     };
 
     /*
-     * 編集
+     * =========================
+     * Set edit form
+     * =========================
      */
+
     const handleEdit = (post: Post) => {
-        if (
-            !currentUser ||
-            post.authorId !== currentUser.id
-        ) {
-            setStatus(
-                "You can only edit your own posts.",
-            );
+        if (!currentUser) {
+            setStatus("Please sign in first.");
+            return;
+        }
+
+        if (post.authorId !== currentUser.id) {
+            setStatus("You can only edit your own posts.");
             return;
         }
 
@@ -248,23 +290,24 @@ export function useBlogPosts() {
     };
 
     /*
-     * inline edit
+     * =========================
+     * Inline update
+     * =========================
      */
+
     const handleUpdate = async (
         postId: number,
         nextTitle: string,
         nextContent: string,
-        nextVisibility: "public" | "private" | "followers",
         nextImageUrl: string,
+        nextVisibility: "public" | "private" | "followers",
     ): Promise<boolean> => {
         if (!currentUser) {
             setStatus("Please sign in first.");
             return false;
         }
 
-        const post = posts.find(
-            (item) => item.id === postId,
-        );
+        const post = posts.find((item) => item.id === postId);
 
         if (!post) {
             setStatus("Post not found.");
@@ -272,9 +315,7 @@ export function useBlogPosts() {
         }
 
         if (post.authorId !== currentUser.id) {
-            setStatus(
-                "You can only edit your own posts.",
-            );
+            setStatus("You can only edit your own posts.");
             return false;
         }
 
@@ -282,6 +323,9 @@ export function useBlogPosts() {
         const trimmedContent = nextContent.trim();
         const trimmedImageUrl = nextImageUrl.trim();
 
+        /*
+         * Title is optional.
+         */
         if (!trimmedContent) {
             setStatus("Article is required.");
             return false;
@@ -297,34 +341,27 @@ export function useBlogPosts() {
                 visibility: nextVisibility,
             };
 
-            const response = await fetch(
-                `/api/posts/${postId}`,
-                {
-                    method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "x-blog-user-email":
-                            currentUser.email,
-                    },
-                    body: JSON.stringify(payload),
+            const response = await fetch(`/api/posts/${postId}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-blog-user-email": currentUser.email,
                 },
-            );
+                body: JSON.stringify(payload),
+            });
 
             if (!response.ok) {
-                const data = await response
-                    .json()
-                    .catch(() => null);
+                const data = await response.json().catch(() => null);
 
-                throw new Error(
-                    data?.error ||
-                        "Failed to update post.",
-                );
+                throw new Error(data?.error || "Failed to update post.");
             }
 
-            const updatedPost =
-                (await response
-                    .json()
-                    .catch(() => null)) as Post | null;
+            /*
+             * API response may contain updated post.
+             */
+            const updatedPost = (await response
+                .json()
+                .catch(() => null)) as Post | null;
 
             setPosts((currentPosts) =>
                 currentPosts.map((item) => {
@@ -363,17 +400,18 @@ export function useBlogPosts() {
     };
 
     /*
-     * 削除
+     * =========================
+     * Delete
+     * =========================
      */
+
     const handleDelete = async (postId: number) => {
         if (!currentUser) {
             setStatus("Please sign in first.");
             return;
         }
 
-        const post = posts.find(
-            (item) => item.id === postId,
-        );
+        const post = posts.find((item) => item.id === postId);
 
         if (!post) {
             setStatus("Post not found.");
@@ -381,38 +419,26 @@ export function useBlogPosts() {
         }
 
         if (post.authorId !== currentUser.id) {
-            setStatus(
-                "You can only delete your own posts.",
-            );
+            setStatus("You can only delete your own posts.");
             return;
         }
 
         try {
-            const response = await fetch(
-                `/api/posts/${postId}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        "x-blog-user-email":
-                            currentUser.email,
-                    },
+            const response = await fetch(`/api/posts/${postId}`, {
+                method: "DELETE",
+                headers: {
+                    "x-blog-user-email": currentUser.email,
                 },
-            );
+            });
 
             if (!response.ok) {
-                const data = await response
-                    .json()
-                    .catch(() => null);
+                const data = await response.json().catch(() => null);
 
-                throw new Error(
-                    data?.error || "Delete failed",
-                );
+                throw new Error(data?.error || "Delete failed.");
             }
 
             setPosts((currentPosts) =>
-                currentPosts.filter(
-                    (post) => post.id !== postId,
-                ),
+                currentPosts.filter((item) => item.id !== postId),
             );
 
             if (editId === postId) {
@@ -432,8 +458,11 @@ export function useBlogPosts() {
     };
 
     /*
-     * いいね
+     * =========================
+     * Like
+     * =========================
      */
+
     const handleReact = async (postId: number) => {
         if (!currentUser) {
             setStatus("Please sign in first.");
@@ -441,31 +470,26 @@ export function useBlogPosts() {
         }
 
         try {
-            const response = await fetch(
-                `/api/posts/${postId}/react`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "x-blog-user-email":
-                            currentUser.email,
-                    },
-                    body: JSON.stringify({
-                        userId: currentUser.id,
-                    }),
+            const response = await fetch(`/api/posts/${postId}/react`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-blog-user-email": currentUser.email,
                 },
-            );
+                body: JSON.stringify({
+                    userId: currentUser.id,
+                }),
+            });
 
             if (!response.ok) {
-                const data = await response
-                    .json()
-                    .catch(() => null);
+                const data = await response.json().catch(() => null);
 
-                throw new Error(
-                    data?.error || "Reaction failed",
-                );
+                throw new Error(data?.error || "Reaction failed.");
             }
 
+            /*
+             * 最新状態を取得
+             */
             await loadPosts();
 
             setStatus("Reaction updated.");
@@ -478,6 +502,42 @@ export function useBlogPosts() {
                     : "Failed to update reaction.",
             );
         }
+    };
+
+    /*
+     * =========================
+     * Refresh user
+     * =========================
+     *
+     * Profile update後に呼ぶ。
+     * これによってTimeline側のauthor情報も
+     * 最新のcurrentUserを基準に更新できる。
+     */
+
+    const refreshCurrentUser = async (): Promise<CurrentUser | null> => {
+        const user = await loadCurrentUser();
+
+        if (user) {
+            /*
+             * 投稿側の author 情報も更新
+             */
+            setPosts((currentPosts) =>
+                currentPosts.map((post) => {
+                    if (post.authorId !== user.id) {
+                        return post;
+                    }
+
+                    return {
+                        ...post,
+                        authorName: user.name,
+                        authorEmail: user.email,
+                        authorUsername: user.username ?? post.authorUsername,
+                    };
+                }),
+            );
+        }
+
+        return user;
     };
 
     return {
@@ -502,14 +562,19 @@ export function useBlogPosts() {
         resetForm,
 
         handleSubmit,
+
         handleEdit,
+
         handleUpdate,
+
         handleDelete,
+
         handleReact,
 
         currentUser,
 
-        postCreatedMessage,
-        setPostCreatedMessage,
+        loadPosts,
+
+        refreshCurrentUser,
     };
 }

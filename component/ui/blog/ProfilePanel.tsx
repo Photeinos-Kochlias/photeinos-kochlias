@@ -24,17 +24,66 @@ export function ProfilePanel({
     const [avatarUrl, setAvatarUrl] = useState("");
     const [isPublic, setIsPublic] = useState(true);
 
-    const [status, setStatus] = useState("Profile ready");
+    const [status, setStatus] = useState("");
 
-    const [followCount, setFollowCount] = useState(0);
-
+    /*
+     * profile が変更されたときだけ
+     * 編集フォームの初期値を更新
+     */
     useEffect(() => {
-        setDisplayName(profile?.displayName || "");
-        setBio(profile?.bio || "");
-        setAvatarUrl(profile?.avatarUrl || "");
-        setIsPublic(profile?.isPublic ?? true);
-        setFollowCount(profile?.followers?.length || 0);
+        if (!profile) {
+            return;
+        }
+
+        setDisplayName(profile.displayName || "");
+        setBio(profile.bio || "");
+        setAvatarUrl(profile.avatarUrl || "");
+        setIsPublic(profile.isPublic ?? true);
     }, [profile]);
+
+    /*
+     * =========================
+     * Edit start
+     * =========================
+     */
+
+    const startEdit = () => {
+        if (!profile) {
+            return;
+        }
+
+        setDisplayName(profile.displayName || "");
+        setBio(profile.bio || "");
+        setAvatarUrl(profile.avatarUrl || "");
+        setIsPublic(profile.isPublic ?? true);
+
+        setStatus("");
+        setIsEditing(true);
+    };
+
+    /*
+     * =========================
+     * Cancel
+     * =========================
+     */
+
+    const cancelEdit = () => {
+        if (profile) {
+            setDisplayName(profile.displayName || "");
+            setBio(profile.bio || "");
+            setAvatarUrl(profile.avatarUrl || "");
+            setIsPublic(profile.isPublic ?? true);
+        }
+
+        setStatus("");
+        setIsEditing(false);
+    };
+
+    /*
+     * =========================
+     * Save
+     * =========================
+     */
 
     const saveProfile = async () => {
         if (!currentUser) {
@@ -52,37 +101,47 @@ export function ProfilePanel({
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "x-blog-user-email": currentUser.email,
                 },
                 body: JSON.stringify({
                     userId: currentUser.id,
+                    email: currentUser.email,
+
                     username:
                         profile?.username ||
-                        currentUser.name
+                        nextDisplayName
                             .toLowerCase()
-                            .replace(/\s+/g, "-"),
-                    email: currentUser.email,
+                            .trim()
+                            .replace(/[^a-z0-9]+/g, "-")
+                            .replace(/(^-|-$)/g, ""),
+
                     displayName: nextDisplayName,
+
                     bio: bio.trim(),
+
                     avatarUrl: avatarUrl.trim(),
+
                     isPublic,
+
                     followers: profile?.followers || [],
+
                     following: profile?.following || [],
                 }),
             });
 
-            if (!response.ok) {
-                const data = await response.json().catch(() => null);
+            const data = await response.json().catch(() => null);
 
-                throw new Error(
-                    data?.error || "Failed to save profile",
-                );
+            if (!response.ok) {
+                throw new Error(data?.error || "Failed to save profile.");
             }
 
             setStatus("Profile saved.");
 
             setIsEditing(false);
 
+            /*
+             * BlogPage側でプロフィールと
+             * postsを再取得
+             */
             onProfileSaved();
         } catch (error) {
             console.error(error);
@@ -95,15 +154,11 @@ export function ProfilePanel({
         }
     };
 
-    const cancelEdit = () => {
-        setDisplayName(profile?.displayName || "");
-        setBio(profile?.bio || "");
-        setAvatarUrl(profile?.avatarUrl || "");
-        setIsPublic(profile?.isPublic ?? true);
-
-        setStatus("Profile ready.");
-        setIsEditing(false);
-    };
+    /*
+     * =========================
+     * Delete account
+     * =========================
+     */
 
     const deleteAccount = async () => {
         if (!currentUser) {
@@ -125,7 +180,7 @@ export function ProfilePanel({
             });
 
             if (!response.ok) {
-                throw new Error("Delete failed");
+                throw new Error("Failed to delete account.");
             }
 
             localStorage.removeItem("blog-user-email");
@@ -134,23 +189,31 @@ export function ProfilePanel({
         } catch (error) {
             console.error(error);
 
-            setStatus("Failed to delete account.");
+            setStatus(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to delete account.",
+            );
         }
     };
 
-    const profileDisplayName =
-        profile?.displayName ||
-        currentUser?.name ||
-        "Anonymous";
+    /*
+     * =========================
+     * Display data
+     * =========================
+     */
 
-    const initial = profileDisplayName
-        .charAt(0)
-        .toUpperCase();
+    const profileDisplayName =
+        profile?.displayName || currentUser?.name || "Anonymous";
+
+    const initial = profileDisplayName.charAt(0).toUpperCase();
+
+    const followerCount = profile?.followers?.length || 0;
 
     return (
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             {/* =========================
-                Profile header
+                Header
             ========================= */}
 
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -184,27 +247,20 @@ export function ProfilePanel({
 
                         <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-600">
                             <span className="rounded-full bg-slate-100 px-3 py-1">
-                                Followers {followCount}
+                                Followers {followerCount}
                             </span>
 
                             <span className="rounded-full bg-slate-100 px-3 py-1">
-                                {profile?.isPublic
-                                    ? "Public"
-                                    : "Private"}
+                                {profile?.isPublic ? "Public" : "Private"}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Edit button */}
-
                 {!isEditing ? (
                     <button
                         type="button"
-                        onClick={() => {
-                            setIsEditing(true);
-                            setStatus("");
-                        }}
+                        onClick={startEdit}
                         className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                     >
                         Edit profile
@@ -213,8 +269,8 @@ export function ProfilePanel({
             </div>
 
             {/* =========================
-                Normal profile view
-                ========================= */}
+                Normal view
+            ========================= */}
 
             {!isEditing ? (
                 <div className="mt-6 space-y-4">
@@ -243,8 +299,8 @@ export function ProfilePanel({
             ) : null}
 
             {/* =========================
-                Edit mode
-                ========================= */}
+                Edit view
+            ========================= */}
 
             {isEditing ? (
                 <div className="mt-6 space-y-5">
@@ -266,9 +322,7 @@ export function ProfilePanel({
                         <input
                             value={displayName}
                             onChange={(event) =>
-                                setDisplayName(
-                                    event.target.value,
-                                )
+                                setDisplayName(event.target.value)
                             }
                             className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                         />
@@ -281,9 +335,7 @@ export function ProfilePanel({
 
                         <textarea
                             value={bio}
-                            onChange={(event) =>
-                                setBio(event.target.value)
-                            }
+                            onChange={(event) => setBio(event.target.value)}
                             rows={5}
                             className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                         />
@@ -297,9 +349,7 @@ export function ProfilePanel({
                         <input
                             value={avatarUrl}
                             onChange={(event) =>
-                                setAvatarUrl(
-                                    event.target.value,
-                                )
+                                setAvatarUrl(event.target.value)
                             }
                             placeholder="https://example.com/avatar.jpg"
                             className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
@@ -310,10 +360,8 @@ export function ProfilePanel({
                         <input
                             type="checkbox"
                             checked={isPublic}
-                            onChange={() =>
-                                setIsPublic(
-                                    (value) => !value,
-                                )
+                            onChange={(event) =>
+                                setIsPublic(event.target.checked)
                             }
                             className="h-4 w-4"
                         />
@@ -322,9 +370,7 @@ export function ProfilePanel({
                     </label>
 
                     {status ? (
-                        <p className="text-sm text-slate-500">
-                            {status}
-                        </p>
+                        <p className="text-sm text-slate-500">{status}</p>
                     ) : null}
 
                     <div className="flex flex-wrap gap-3">

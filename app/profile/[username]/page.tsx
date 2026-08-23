@@ -14,9 +14,7 @@ async function getProfile(username: string) {
     });
 }
 
-async function getPostsByAuthor(
-    username: string,
-): Promise<Post[]> {
+async function getPostsByAuthor(username: string): Promise<Post[]> {
     const client = await getMongoClient();
     const db = client.db(getDatabaseName());
 
@@ -49,35 +47,26 @@ export default async function ProfilePage({
 
     const sessionEmail = session?.user?.email || "";
 
-    const isOwner =
-        sessionEmail !== "" &&
-        sessionEmail === profile.email;
+    const isOwner = sessionEmail !== "" && sessionEmail === profile.email;
 
-    const currentUserId =
-        session?.user?.id || sessionEmail || "guest";
+    const currentUserId = session?.user?.id || sessionEmail || "guest";
 
-    const following = Array.isArray(profile.following)
-        ? profile.following
-        : [];
+    const following = Array.isArray(profile.following) ? profile.following : [];
 
-    const isFollowing =
-        following.includes(currentUserId);
+    const isFollowing = following.includes(currentUserId);
 
     const posts = await getPostsByAuthor(username);
 
     return (
         <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
             <div className="mx-auto flex max-w-5xl flex-col gap-6">
-
                 {/* =========================
                     Profile
                 ========================= */}
 
                 <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
                     <div className="flex flex-wrap items-start justify-between gap-6">
-
                         <div className="flex items-start gap-4">
-
                             <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-2xl font-semibold text-white">
                                 {profile.avatarUrl ? (
                                     <img
@@ -86,9 +75,7 @@ export default async function ProfilePage({
                                         className="h-full w-full object-cover"
                                     />
                                 ) : (
-                                    profile.displayName
-                                        .charAt(0)
-                                        .toUpperCase()
+                                    profile.displayName.charAt(0).toUpperCase()
                                 )}
                             </div>
 
@@ -106,24 +93,19 @@ export default async function ProfilePage({
                                 </p>
 
                                 <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-7 text-slate-600">
-                                    {profile.bio ||
-                                        "No bio yet."}
+                                    {profile.bio || "No bio yet."}
                                 </p>
 
                                 <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-600">
                                     <span className="rounded-full bg-slate-100 px-3 py-1">
                                         Followers{" "}
-                                        {Array.isArray(
-                                            profile.followers,
-                                        )
-                                            ? profile.followers
-                                                  .length
+                                        {Array.isArray(profile.followers)
+                                            ? profile.followers.length
                                             : 0}
                                     </span>
 
                                     <span className="rounded-full bg-slate-100 px-3 py-1">
-                                        Posts{" "}
-                                        {posts.length}
+                                        Posts {posts.length}
                                     </span>
 
                                     <span className="rounded-full bg-slate-100 px-3 py-1">
@@ -138,22 +120,12 @@ export default async function ProfilePage({
                         <div className="flex items-center gap-3">
                             {!isOwner ? (
                                 <FollowButton
-                                    targetUserId={
-                                        profile.userId
-                                    }
-                                    targetUsername={
-                                        profile.username
-                                    }
-                                    initialFollowing={
-                                        isFollowing
-                                    }
+                                    targetUserId={profile.userId}
+                                    targetUsername={profile.username}
+                                    initialFollowing={isFollowing}
                                     initialFollowers={
-                                        Array.isArray(
-                                            profile.followers,
-                                        )
-                                            ? profile
-                                                  .followers
-                                                  .length
+                                        Array.isArray(profile.followers)
+                                            ? profile.followers.length
                                             : 0
                                     }
                                 />
@@ -202,7 +174,6 @@ export default async function ProfilePage({
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0">
-
                                             {post.title ? (
                                                 <h3 className="text-lg font-semibold text-slate-900">
                                                     {post.title}
@@ -222,24 +193,16 @@ export default async function ProfilePage({
                                     {post.imageUrl ? (
                                         <img
                                             src={post.imageUrl}
-                                            alt={
-                                                post.title ||
-                                                "Post image"
-                                            }
+                                            alt={post.title || "Post image"}
                                             className="mt-4 h-52 w-full rounded-2xl object-cover"
                                         />
                                     ) : null}
 
                                     <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-500">
-                                        <span>
-                                            Like{" "}
-                                            {post.likes || 0}
-                                        </span>
+                                        <span>Like {post.likes || 0}</span>
 
                                         <span>
-                                            Reply{" "}
-                                            {post.replies
-                                                ?.length || 0}
+                                            Reply {post.replies?.length || 0}
                                         </span>
                                     </div>
                                 </Link>
