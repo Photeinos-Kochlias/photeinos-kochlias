@@ -93,7 +93,7 @@ jobs:
           GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
           CURRENT_SHA: ${{ github.sha }}
           PREVIOUS_SHA: ${{ env.PREVIOUS_SHA }}
-          VERCEL_DEPLOYMENT_URL: ${{ env.VERCEL_DEPLOYMENT_URL }}
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
         run: |
           node <<'NODE'
           const githubToken =
