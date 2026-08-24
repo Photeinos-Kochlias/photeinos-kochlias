@@ -9,14 +9,17 @@ import { sendGoogleChatMessage } from "@/lib/announce/google-chat";
 
 type VercelWebhookPayload = {
     type?: string;
+
     payload?: {
         deployment?: {
             id?: string;
+
             meta?: {
                 githubCommitSha?: string;
                 githubCommitRef?: string;
             };
         };
+
         project?: {
             id?: string;
             name?: string;
@@ -26,22 +29,30 @@ type VercelWebhookPayload = {
 
 export async function POST(req: Request) {
     try {
-        const body: VercelWebhookPayload = await req.json();
+        const body: VercelWebhookPayload =
+            await req.json();
 
         console.log(
             "Vercel webhook received:",
             JSON.stringify(body, null, 2)
         );
 
-        const deployment = body.payload?.deployment;
+        const deployment =
+            body.payload?.deployment;
 
-        const commitSha = deployment?.meta?.githubCommitSha;
+        const commitSha =
+            deployment?.meta?.githubCommitSha;
 
         if (!commitSha) {
+            console.error(
+                "GitHub commit SHA not found"
+            );
+
             return NextResponse.json(
                 {
                     success: false,
-                    error: "GitHub commit SHA was not found",
+                    error:
+                        "GitHub commit SHA was not found",
                 },
                 {
                     status: 400,
@@ -49,13 +60,16 @@ export async function POST(req: Request) {
             );
         }
 
-        const commit = await getCommit(commitSha);
+        const commit =
+            await getCommit(commitSha);
 
-        const categorizedCommit = categorizeCommit(commit);
+        const categorizedCommit =
+            categorizeCommit(commit);
 
-        const message = createAnnouncement([
-            categorizedCommit,
-        ]);
+        const message =
+            createAnnouncement([
+                categorizedCommit,
+            ]);
 
         await sendGoogleChatMessage(message);
 
@@ -64,7 +78,10 @@ export async function POST(req: Request) {
             commit: categorizedCommit,
         });
     } catch (error) {
-        console.error("Deploy webhook error:", error);
+        console.error(
+            "Deploy webhook error:",
+            error
+        );
 
         return NextResponse.json(
             {
