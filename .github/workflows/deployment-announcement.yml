@@ -13,6 +13,9 @@ jobs:
       contents: read
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Wait for Vercel deployment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -21,11 +24,13 @@ jobs:
         run: |
           echo "Waiting for Vercel deployment..."
 
+          DEPLOYMENT_URL=""
+
           for i in {1..30}
           do
             RESPONSE=$(curl -s \
               -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-              "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&target=production&limit=20")
+              "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&target=production&limit=10")
 
             STATUS=$(echo "$RESPONSE" | jq -r \
               --arg SHA "$COMMIT_SHA" \
@@ -40,7 +45,13 @@ jobs:
             echo "Deployment status: ${STATUS:-not-found}"
 
             if [ "$STATUS" = "READY" ]; then
-              echo "VERCEL_DEPLOYMENT_URL=https://${URL}" >> "$GITHUB_ENV"
+              DEPLOYMENT_URL="https://${URL}"
+
+              echo "Vercel deployment is ready!"
+              echo "Deployment URL: ${DEPLOYMENT_URL}"
+
+              echo "VERCEL_DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> "$GITHUB_ENV"
+
               break
             fi
 
@@ -52,7 +63,7 @@ jobs:
             sleep 10
           done
 
-          if [ -z "${VERCEL_DEPLOYMENT_URL:-}" ]; then
+          if [ -z "$DEPLOYMENT_URL" ]; then
             echo "Vercel deployment was not ready within timeout."
             exit 1
           fi
@@ -69,9 +80,11 @@ jobs:
 
           PREVIOUS_SHA=$(echo "$RESPONSE" | jq -r \
             --arg SHA "$CURRENT_SHA" \
-            '[.deployments[] | select(.meta.githubCommitSha != null and .meta.githubCommitSha != $SHA and .readyState == "READY") | .meta.githubCommitSha] | .[0] // empty')
+            '[.deployments[] | select(.meta.githubCommitSha != null and .meta.githubCommitSha != $SHA)] | .[0].meta.githubCommitSha // empty')
 
           echo "PREVIOUS_SHA=${PREVIOUS_SHA}" >> "$GITHUB_ENV"
+
+          echo "Previous SHA: ${PREVIOUS_SHA}"
 
       - name: Send announcement
         env:
@@ -106,8 +119,10 @@ jobs:
               headers: {
                 Accept:
                   "application/vnd.github+json",
+
                 Authorization:
                   `Bearer ${githubToken}`,
+
                 "X-GitHub-Api-Version":
                   "2022-11-28"
               }
@@ -137,7 +152,8 @@ jobs:
             const type =
               match[1].toLowerCase();
 
-            const text = match[3];
+            const text =
+              match[3];
 
             switch (type) {
               case "feat":
@@ -167,21 +183,15 @@ jobs:
           let commits;
 
           if (previousSha) {
-            console.log(
-              `Comparing ${previousSha}...${currentSha}`
-            );
-
             const result =
               await github(
                 `https://api.github.com/repos/${repository}/compare/${previousSha}...${currentSha}`
               );
 
-            commits = result.commits;
-          } else {
-            console.log(
-              "No previous deployment found."
-            );
+            commits =
+              result.commits;
 
+          } else {
             const commit =
               await github(
                 `https://api.github.com/repos/${repository}/commits/${currentSha}`
@@ -265,10 +275,12 @@ jobs:
               chatWebhook,
               {
                 method: "POST",
+
                 headers: {
                   "Content-Type":
                     "application/json"
                 },
+
                 body: JSON.stringify({
                   text: message
                 })
