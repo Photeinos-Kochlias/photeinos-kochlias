@@ -133,7 +133,7 @@ export function createAnnouncement(
     if (productionUrl) {
         result.push(
             "",
-            `Deploy: ${productionUrl}`
+            `Deploy: https://murmur-gamma-neon.vercel.app/`
         );
     }
 
