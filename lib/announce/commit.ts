@@ -8,9 +8,10 @@ export type CommitCategory =
     | "test"
     | "other";
 
-export type CategorizedCommit = GitHubCommit & {
-    category: CommitCategory;
-};
+export type CategorizedCommit =
+    GitHubCommit & {
+        category: CommitCategory;
+    };
 
 export function categorizeCommit(
     commit: GitHubCommit
@@ -64,9 +65,13 @@ export function categorizeCommit(
 }
 
 export function createAnnouncement(
-    commits: CategorizedCommit[]
+    commits: CategorizedCommit[],
+    deploymentUrl?: string
 ): string {
-    const groups: Record<CommitCategory, string[]> = {
+    const groups: Record<
+        CommitCategory,
+        string[]
+    > = {
         feature: [],
         fix: [],
         improvement: [],
@@ -76,9 +81,9 @@ export function createAnnouncement(
     };
 
     for (const commit of commits) {
-        const message = cleanCommitMessage(commit.message);
-
-        groups[commit.category].push(`・${message}`);
+        groups[commit.category].push(
+            `・${cleanCommitMessage(commit.message)}`
+        );
     }
 
     const sections: string[] = [];
@@ -119,15 +124,27 @@ export function createAnnouncement(
         );
     }
 
-    return [
+    const result = [
         "🚀 Production Deploy",
         "",
         ...sections,
-    ].join("\n");
+    ];
+
+    if (deploymentUrl) {
+        result.push(
+            "",
+            `Deploy: ${deploymentUrl}`
+        );
+    }
+
+    return result.join("\n");
 }
 
-function cleanCommitMessage(message: string): string {
-    const firstLine = message.split("\n")[0];
+function cleanCommitMessage(
+    message: string
+): string {
+    const firstLine =
+        message.split("\n")[0];
 
     return firstLine.replace(
         /^(feat|fix|perf|refactor|docs|test|chore)(\(.+\))?:\s*/i,
