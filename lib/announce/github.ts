@@ -27,7 +27,6 @@ async function githubFetch<T>(
             Authorization: `Bearer ${githubToken}`,
             "X-GitHub-Api-Version": "2022-11-28",
         },
-        cache: "no-store",
     });
 
     if (!response.ok) {
@@ -41,21 +40,6 @@ async function githubFetch<T>(
     return response.json();
 }
 
-export async function getLatestCommits(): Promise<GitHubCommit[]> {
-    if (!repository) {
-        throw new Error("GITHUB_REPOSITORY is not set");
-    }
-
-    const commits = await githubFetch<GitHubApiCommit[]>(
-        `https://api.github.com/repos/${repository}/commits`
-    );
-
-    return commits.map((commit) => ({
-        sha: commit.sha,
-        message: commit.commit.message,
-    }));
-}
-
 export async function getCommit(
     sha: string
 ): Promise<GitHubCommit> {
@@ -63,12 +47,33 @@ export async function getCommit(
         throw new Error("GITHUB_REPOSITORY is not set");
     }
 
-    const commit = await githubFetch<GitHubApiCommit>(
-        `https://api.github.com/repos/${repository}/commits/${sha}`
-    );
+    const commit =
+        await githubFetch<GitHubApiCommit>(
+            `https://api.github.com/repos/${repository}/commits/${sha}`
+        );
 
     return {
         sha: commit.sha,
         message: commit.commit.message,
     };
+}
+
+export async function getCommitsBetween(
+    baseSha: string,
+    headSha: string
+): Promise<GitHubCommit[]> {
+    if (!repository) {
+        throw new Error("GITHUB_REPOSITORY is not set");
+    }
+
+    const result = await githubFetch<{
+        commits: GitHubApiCommit[];
+    }>(
+        `https://api.github.com/repos/${repository}/compare/${baseSha}...${headSha}`
+    );
+
+    return result.commits.map((commit) => ({
+        sha: commit.sha,
+        message: commit.commit.message,
+    }));
 }
