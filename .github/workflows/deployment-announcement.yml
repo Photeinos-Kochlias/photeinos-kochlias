@@ -16,6 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # VercelのProduction DeploymentがREADYになるまで待つ
+      # --------------------------------------------------
       - name: Wait for Vercel deployment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -50,8 +53,6 @@ jobs:
               echo "Vercel deployment is ready!"
               echo "Deployment URL: ${DEPLOYMENT_URL}"
 
-              echo "VERCEL_DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> "$GITHUB_ENV"
-
               break
             fi
 
@@ -68,6 +69,9 @@ jobs:
             exit 1
           fi
 
+      # --------------------------------------------------
+      # 前回のProduction DeploymentのCommit SHAを取得
+      # --------------------------------------------------
       - name: Get previous production deployment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -82,20 +86,26 @@ jobs:
             --arg SHA "$CURRENT_SHA" \
             '[.deployments[] | select(.meta.githubCommitSha != null and .meta.githubCommitSha != $SHA)] | .[0].meta.githubCommitSha // empty')
 
-          echo "PREVIOUS_SHA=${PREVIOUS_SHA}" >> "$GITHUB_ENV"
-
           echo "Previous SHA: ${PREVIOUS_SHA}"
 
+          echo "PREVIOUS_SHA=${PREVIOUS_SHA}" >> "$GITHUB_ENV"
+
+      # --------------------------------------------------
+      # GitHubから変更内容を取得してGoogle Chatへ通知
+      # --------------------------------------------------
       - name: Send announcement
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+
           CURRENT_SHA: ${{ github.sha }}
           PREVIOUS_SHA: ${{ env.PREVIOUS_SHA }}
-          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
         run: |
           node <<'NODE'
+
           const githubToken =
             process.env.GITHUB_TOKEN;
 
@@ -111,8 +121,20 @@ jobs:
           const chatWebhook =
             process.env.GOOGLE_CHAT_WEBHOOK_URL;
 
-          const deploymentUrl =
-            process.env.VERCEL_DEPLOYMENT_URL;
+          const productionUrl =
+            process.env.PRODUCTION_URL;
+
+          if (!chatWebhook) {
+            throw new Error(
+              "GOOGLE_CHAT_WEBHOOK_URL is not set"
+            );
+          }
+
+          if (!productionUrl) {
+            throw new Error(
+              "PRODUCTION_URL is not set"
+            );
+          }
 
           async function github(url) {
             const response = await fetch(url, {
@@ -136,6 +158,10 @@ jobs:
 
             return response.json();
           }
+
+          // --------------------------------------------------
+          // Commit分類
+          // --------------------------------------------------
 
           function categorize(message) {
             const match = message.match(
@@ -175,14 +201,25 @@ jobs:
               case "test":
                 return ["test", text];
 
+              case "chore":
+                return ["other", text];
+
               default:
                 return ["other", text];
             }
           }
 
+          // --------------------------------------------------
+          // Commit取得
+          // --------------------------------------------------
+
           let commits;
 
           if (previousSha) {
+            console.log(
+              `Comparing ${previousSha}...${currentSha}`
+            );
+
             const result =
               await github(
                 `https://api.github.com/repos/${repository}/compare/${previousSha}...${currentSha}`
@@ -192,6 +229,10 @@ jobs:
               result.commits;
 
           } else {
+            console.log(
+              "Previous deployment not found."
+            );
+
             const commit =
               await github(
                 `https://api.github.com/repos/${repository}/commits/${currentSha}`
@@ -199,6 +240,14 @@ jobs:
 
             commits = [commit];
           }
+
+          console.log(
+            `Found ${commits.length} commit(s).`
+          );
+
+          // --------------------------------------------------
+          // カテゴリ別に整理
+          // --------------------------------------------------
 
           const groups = {
             feature: [],
@@ -221,6 +270,10 @@ jobs:
               `・${message}`
             );
           }
+
+          // --------------------------------------------------
+          // Google Chatメッセージ作成
+          // --------------------------------------------------
 
           const sections = [];
 
@@ -265,10 +318,22 @@ jobs:
             "",
             ...sections,
             "",
-            `Deploy: ${deploymentUrl}`
+            `🌐 Production: ${productionUrl}`
           ].join("\n");
 
+          console.log(
+            "--------------------------------"
+          );
+
           console.log(message);
+
+          console.log(
+            "--------------------------------"
+          );
+
+          // --------------------------------------------------
+          // Google Chatへ送信
+          // --------------------------------------------------
 
           const response =
             await fetch(
@@ -296,4 +361,5 @@ jobs:
           console.log(
             "Google Chat notification sent."
           );
+
           NODE
