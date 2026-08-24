@@ -44,7 +44,9 @@ export async function getCommit(
     sha: string
 ): Promise<GitHubCommit> {
     if (!repository) {
-        throw new Error("GITHUB_REPOSITORY is not set");
+        throw new Error(
+            "GITHUB_REPOSITORY is not set"
+        );
     }
 
     const commit =
@@ -63,14 +65,17 @@ export async function getCommitsBetween(
     headSha: string
 ): Promise<GitHubCommit[]> {
     if (!repository) {
-        throw new Error("GITHUB_REPOSITORY is not set");
+        throw new Error(
+            "GITHUB_REPOSITORY is not set"
+        );
     }
 
-    const result = await githubFetch<{
-        commits: GitHubApiCommit[];
-    }>(
-        `https://api.github.com/repos/${repository}/compare/${baseSha}...${headSha}`
-    );
+    const result =
+        await githubFetch<{
+            commits: GitHubApiCommit[];
+        }>(
+            `https://api.github.com/repos/${repository}/compare/${baseSha}...${headSha}`
+        );
 
     return result.commits.map((commit) => ({
         sha: commit.sha,
