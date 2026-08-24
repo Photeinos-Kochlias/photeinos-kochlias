@@ -66,7 +66,7 @@ export function categorizeCommit(
 
 export function createAnnouncement(
     commits: CategorizedCommit[],
-    deploymentUrl?: string
+    productionUrl?: string
 ): string {
     const groups: Record<
         CommitCategory,
@@ -130,10 +130,10 @@ export function createAnnouncement(
         ...sections,
     ];
 
-    if (deploymentUrl) {
+    if (productionUrl) {
         result.push(
             "",
-            `Deploy: https://murmur-gamma-neon.vercel.app/`
+            `Deploy: ${productionUrl}`
         );
     }
 
