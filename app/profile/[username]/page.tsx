@@ -1,9 +1,38 @@
 import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
+import { loadAuthorProfiles, serializePosts } from "@/lib/post-display";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { FollowButton } from "../../../component/ui/blog/FollowButton";
-import type { Post } from "../../../component/ui/blog/types";
+import { ProfileOverview } from "../../../component/ui/blog/ProfileOverview";
+import type { CurrentUser, Profile } from "../../../component/ui/blog/types";
+
+function toProfile(document: {
+    userId?: string;
+    username?: string;
+    email?: string;
+    displayName?: string;
+    bio?: string;
+    avatarUrl?: string;
+    isPublic?: boolean;
+    followers?: string[];
+    following?: string[];
+}): Profile {
+    return {
+        userId: document.userId || "",
+        username: document.username,
+        email: document.email,
+        displayName: document.displayName || "Anonymous",
+        bio: document.bio || "",
+        avatarUrl: document.avatarUrl || "",
+        isPublic: document.isPublic ?? true,
+        followers: Array.isArray(document.followers)
+            ? document.followers
+            : [],
+        following: Array.isArray(document.following)
+            ? document.following
+            : [],
+    };
+}
 
 async function getProfile(username: string) {
     const client = await getMongoClient();
@@ -15,21 +44,36 @@ async function getProfile(username: string) {
 }
 
 async function getPostsByAuthor(
+    userId: string,
     username: string,
-): Promise<Post[]> {
+    isOwner: boolean,
+) {
     const client = await getMongoClient();
     const db = client.db(getDatabaseName());
 
-    return db
-        .collection<Post>("posts")
+    const posts = await db
+        .collection("posts")
         .find({
-            authorUsername: username,
-            visibility: "public",
+            $or: [{ authorId: userId }, { authorUsername: username }],
         })
         .sort({
-            createdAt: -1,
+            id: -1,
         })
         .toArray();
+
+    const visiblePosts = posts.filter((post) => {
+        if (isOwner) {
+            return true;
+        }
+        return post.visibility === "public";
+    });
+
+    const profiles = await loadAuthorProfiles(
+        db.collection("profiles"),
+        visiblePosts,
+    );
+
+    return serializePosts(visiblePosts, profiles);
 }
 
 export default async function ProfilePage({
@@ -41,137 +85,98 @@ export default async function ProfilePage({
 
     const session = await auth();
 
-    const profile = await getProfile(username);
+    const profileDocument = await getProfile(username);
 
-    if (!profile) {
+    if (!profileDocument) {
         notFound();
     }
 
+    const profile = toProfile({
+        userId:
+            typeof profileDocument.userId === "string"
+                ? profileDocument.userId
+                : "",
+        username:
+            typeof profileDocument.username === "string"
+                ? profileDocument.username
+                : undefined,
+        email:
+            typeof profileDocument.email === "string"
+                ? profileDocument.email
+                : undefined,
+        displayName:
+            typeof profileDocument.displayName === "string"
+                ? profileDocument.displayName
+                : undefined,
+        bio:
+            typeof profileDocument.bio === "string"
+                ? profileDocument.bio
+                : undefined,
+        avatarUrl:
+            typeof profileDocument.avatarUrl === "string"
+                ? profileDocument.avatarUrl
+                : undefined,
+        isPublic:
+            typeof profileDocument.isPublic === "boolean"
+                ? profileDocument.isPublic
+                : undefined,
+        followers: Array.isArray(profileDocument.followers)
+            ? profileDocument.followers.filter(
+                  (value): value is string => typeof value === "string",
+              )
+            : [],
+        following: Array.isArray(profileDocument.following)
+            ? profileDocument.following.filter(
+                  (value): value is string => typeof value === "string",
+              )
+            : [],
+    });
+
     const sessionEmail = session?.user?.email || "";
+    const sessionUserId = session?.user?.id || "";
 
     const isOwner =
-        sessionEmail !== "" &&
-        sessionEmail === profile.email;
+        (sessionEmail !== "" && sessionEmail === profile.email) ||
+        (sessionUserId !== "" && sessionUserId === profile.userId);
 
-    const currentUserId =
-        session?.user?.id || sessionEmail || "guest";
+    const currentUser: CurrentUser | null =
+        isOwner && session?.user?.email
+            ? {
+                  id: sessionUserId || profile.userId,
+                  name:
+                      session.user.name ||
+                      profile.displayName ||
+                      session.user.email,
+                  email: session.user.email,
+              }
+            : session?.user?.email
+              ? {
+                    id: sessionUserId || session.user.email,
+                    name: session.user.name || session.user.email,
+                    email: session.user.email,
+                }
+              : null;
 
-    const following = Array.isArray(profile.following)
-        ? profile.following
-        : [];
-
+    const currentUserId = sessionUserId || sessionEmail;
     const isFollowing =
-        following.includes(currentUserId);
+        currentUserId !== "" &&
+        (profile.followers || []).includes(currentUserId);
 
-    const posts = await getPostsByAuthor(username);
+    const posts = await getPostsByAuthor(
+        profile.userId,
+        profile.username || username,
+        isOwner,
+    );
 
     return (
         <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
             <div className="mx-auto flex max-w-5xl flex-col gap-6">
-
-                {/* =========================
-                    Profile
-                ========================= */}
-
-                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-                    <div className="flex flex-wrap items-start justify-between gap-6">
-
-                        <div className="flex items-start gap-4">
-
-                            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-2xl font-semibold text-white">
-                                {profile.avatarUrl ? (
-                                    <img
-                                        src={profile.avatarUrl}
-                                        alt={profile.displayName}
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    profile.displayName
-                                        .charAt(0)
-                                        .toUpperCase()
-                                )}
-                            </div>
-
-                            <div>
-                                <p className="text-sm font-semibold text-sky-600">
-                                    Profile
-                                </p>
-
-                                <h1 className="mt-1 text-3xl font-semibold">
-                                    {profile.displayName}
-                                </h1>
-
-                                <p className="mt-1 text-sm text-slate-500">
-                                    @{profile.username}
-                                </p>
-
-                                <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-7 text-slate-600">
-                                    {profile.bio ||
-                                        "No bio yet."}
-                                </p>
-
-                                <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-600">
-                                    <span className="rounded-full bg-slate-100 px-3 py-1">
-                                        Followers{" "}
-                                        {Array.isArray(
-                                            profile.followers,
-                                        )
-                                            ? profile.followers
-                                                  .length
-                                            : 0}
-                                    </span>
-
-                                    <span className="rounded-full bg-slate-100 px-3 py-1">
-                                        Posts{" "}
-                                        {posts.length}
-                                    </span>
-
-                                    <span className="rounded-full bg-slate-100 px-3 py-1">
-                                        {profile.isPublic
-                                            ? "Public"
-                                            : "Private"}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            {!isOwner ? (
-                                <FollowButton
-                                    targetUserId={
-                                        profile.userId
-                                    }
-                                    targetUsername={
-                                        profile.username
-                                    }
-                                    initialFollowing={
-                                        isFollowing
-                                    }
-                                    initialFollowers={
-                                        Array.isArray(
-                                            profile.followers,
-                                        )
-                                            ? profile
-                                                  .followers
-                                                  .length
-                                            : 0
-                                    }
-                                />
-                            ) : (
-                                <Link
-                                    href="/"
-                                    className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                                >
-                                    Edit profile
-                                </Link>
-                            )}
-                        </div>
-                    </div>
-                </section>
-
-                {/* =========================
-                    Posts
-                ========================= */}
+                <ProfileOverview
+                    profile={profile}
+                    isOwner={isOwner}
+                    currentUser={currentUser}
+                    isFollowing={isFollowing}
+                />
 
                 <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                     <div className="flex items-center justify-between">
@@ -202,7 +207,6 @@ export default async function ProfilePage({
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0">
-
                                             {post.title ? (
                                                 <h3 className="text-lg font-semibold text-slate-900">
                                                     {post.title}
@@ -232,14 +236,12 @@ export default async function ProfilePage({
 
                                     <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-500">
                                         <span>
-                                            Like{" "}
-                                            {post.likes || 0}
+                                            Like {post.likes || 0}
                                         </span>
 
                                         <span>
                                             Reply{" "}
-                                            {post.replies
-                                                ?.length || 0}
+                                            {post.replies?.length || 0}
                                         </span>
                                     </div>
                                 </Link>
@@ -253,10 +255,6 @@ export default async function ProfilePage({
                         )}
                     </div>
                 </section>
-
-                {/* =========================
-                    Back
-                ========================= */}
 
                 <div>
                     <Link

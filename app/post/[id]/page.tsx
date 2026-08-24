@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AuthorAvatar } from "@/component/ui/blog/AuthorAvatar";
 import type { Post, PostReply, Profile } from "@/component/ui/blog/types";
 
 export default function PostDetailPage() {
@@ -117,13 +118,12 @@ export default function PostDetailPage() {
         );
     }
 
-    const authorInitial = (
-        post.authorName ||
-        profile?.displayName ||
-        "A"
-    )
-        .charAt(0)
-        .toUpperCase();
+    const authorName =
+        profile?.displayName || post.authorName || "Anonymous";
+    const authorUsername =
+        profile?.username || post.authorUsername;
+    const authorAvatarUrl =
+        profile?.avatarUrl || post.authorAvatarUrl;
 
     return (
         <main className="min-h-screen bg-slate-50 p-6 text-slate-900">
@@ -155,33 +155,33 @@ export default function PostDetailPage() {
 
                     {/* Author */}
                     <div className="mt-6 flex items-center gap-3">
-                        {profile?.avatarUrl ? (
-                            <img
-                                src={profile.avatarUrl}
-                                alt={
-                                    profile.displayName ||
-                                    post.authorName ||
-                                    "User"
-                                }
-                                className="h-12 w-12 rounded-full object-cover"
-                            />
-                        ) : (
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-lg font-semibold text-white">
-                                {authorInitial}
-                            </div>
-                        )}
+                        <AuthorAvatar
+                            name={authorName}
+                            username={authorUsername}
+                            avatarUrl={authorAvatarUrl}
+                            size="lg"
+                        />
 
                         <div className="min-w-0">
-                            <p className="font-semibold text-slate-900">
-                                {post.authorName || "Anonymous"}
-                            </p>
-
-                            {post.authorUsername ? (
+                            {authorUsername ? (
                                 <Link
-                                    href={`/profile/${post.authorUsername}`}
+                                    href={`/profile/${authorUsername}`}
+                                    className="font-semibold text-slate-900 hover:text-sky-600"
+                                >
+                                    {authorName}
+                                </Link>
+                            ) : (
+                                <p className="font-semibold text-slate-900">
+                                    {authorName}
+                                </p>
+                            )}
+
+                            {authorUsername ? (
+                                <Link
+                                    href={`/profile/${authorUsername}`}
                                     className="text-sm text-sky-600 hover:underline"
                                 >
-                                    @{post.authorUsername}
+                                    @{authorUsername}
                                 </Link>
                             ) : null}
                         </div>
@@ -273,41 +273,46 @@ export default function PostDetailPage() {
 
                     <div className="mt-4 space-y-3">
                         {(post.replies || []).length > 0 ? (
-                            post.replies?.map((item) => {
-                                const replyInitial = (
-                                    item.authorName || "A"
-                                )
-                                    .charAt(0)
-                                    .toUpperCase();
+                            post.replies?.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className="rounded-2xl bg-slate-50 p-4"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <AuthorAvatar
+                                            name={item.authorName}
+                                            username={item.authorUsername}
+                                            avatarUrl={item.authorAvatarUrl}
+                                            size="sm"
+                                        />
 
-                                return (
-                                    <div
-                                        key={item.id}
-                                        className="rounded-2xl bg-slate-50 p-4"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-white">
-                                                {replyInitial}
-                                            </div>
-
-                                            <div>
+                                        <div>
+                                            {item.authorUsername ? (
+                                                <Link
+                                                    href={`/profile/${item.authorUsername}`}
+                                                    className="text-sm font-semibold text-slate-700 hover:text-sky-600"
+                                                >
+                                                    {item.authorName ||
+                                                        "Anonymous"}
+                                                </Link>
+                                            ) : (
                                                 <p className="text-sm font-semibold text-slate-700">
                                                     {item.authorName ||
                                                         "Anonymous"}
                                                 </p>
+                                            )}
 
-                                                <p className="text-xs text-slate-500">
-                                                    {item.createdAt}
-                                                </p>
-                                            </div>
+                                            <p className="text-xs text-slate-500">
+                                                {item.createdAt}
+                                            </p>
                                         </div>
-
-                                        <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
-                                            {item.content}
-                                        </p>
                                     </div>
-                                );
-                            })
+
+                                    <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                                        {item.content}
+                                    </p>
+                                </div>
+                            ))
                         ) : (
                             <p className="py-6 text-center text-sm text-slate-500">
                                 No replies yet.

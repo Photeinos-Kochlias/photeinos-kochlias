@@ -13,11 +13,23 @@ export async function POST(
         const client = await getMongoClient();
         const db = client.db(getDatabaseName());
 
+        const authorId = session?.user?.id || "guest";
+        const profile =
+            authorId !== "guest"
+                ? await db.collection("profiles").findOne({
+                      userId: authorId,
+                  })
+                : null;
+
         const reply = {
             id: Date.now(),
             content: String(body.content || "").trim(),
-            authorId: session?.user?.id || "guest",
-            authorName: session?.user?.name || "Anonymous",
+            authorId,
+            authorName:
+                profile?.displayName ||
+                session?.user?.name ||
+                "Anonymous",
+            authorUsername: profile?.username || "",
             createdAt: new Date().toLocaleDateString("ja-JP", {
                 year: "numeric",
                 month: "short",
@@ -34,7 +46,13 @@ export async function POST(
             { $push: { replies: reply } } as never,
         );
 
-        return NextResponse.json(reply, { status: 201 });
+        return NextResponse.json(
+            {
+                ...reply,
+                authorAvatarUrl: profile?.avatarUrl || "",
+            },
+            { status: 201 },
+        );
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: "Failed to add reply" }, { status: 500 });

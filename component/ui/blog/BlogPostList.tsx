@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { AuthorAvatar } from "./AuthorAvatar";
 import type { Post } from "./types";
 
 type BlogPostListProps = {
@@ -210,11 +211,15 @@ export function BlogPostList({
 
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex items-start gap-3">
-                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-semibold text-white">
-                                            {(post.authorName || "A")
-                                                .charAt(0)
-                                                .toUpperCase()}
-                                        </div>
+                                        <AuthorAvatar
+                                            name={post.authorName}
+                                            username={
+                                                post.authorUsername
+                                            }
+                                            avatarUrl={
+                                                post.authorAvatarUrl
+                                            }
+                                        />
 
                                         <div>
                                             <h3 className="text-lg font-semibold text-slate-900">
@@ -222,10 +227,25 @@ export function BlogPostList({
                                                     "Untitled"}
                                             </h3>
 
-                                            <p className="text-sm text-slate-600">
-                                                {post.authorName ||
-                                                    "Anonymous"}
-                                            </p>
+                                            {post.authorUsername ? (
+                                                <Link
+                                                    href={`/profile/${post.authorUsername}`}
+                                                    onClick={(
+                                                        event,
+                                                    ) => {
+                                                        event.stopPropagation();
+                                                    }}
+                                                    className="text-sm text-slate-600 hover:text-sky-600 hover:underline"
+                                                >
+                                                    {post.authorName ||
+                                                        "Anonymous"}
+                                                </Link>
+                                            ) : (
+                                                <p className="text-sm text-slate-600">
+                                                    {post.authorName ||
+                                                        "Anonymous"}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
 

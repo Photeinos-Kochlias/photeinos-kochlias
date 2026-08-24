@@ -1,19 +1,23 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { CurrentUser, Profile } from "./types";
 
 type ProfilePanelProps = {
     currentUser: CurrentUser | null;
     profile: Profile | null;
     onProfileSaved: () => void;
+    canEdit?: boolean;
+    actions?: ReactNode;
 };
 
 export function ProfilePanel({
     currentUser,
     profile,
     onProfileSaved,
+    canEdit = false,
+    actions,
 }: ProfilePanelProps) {
     const router = useRouter();
 
@@ -37,7 +41,7 @@ export function ProfilePanel({
     }, [profile]);
 
     const saveProfile = async () => {
-        if (!currentUser) {
+        if (!canEdit || !currentUser) {
             setStatus("Please sign in first.");
             return;
         }
@@ -196,20 +200,24 @@ export function ProfilePanel({
                     </div>
                 </div>
 
-                {/* Edit button */}
+                {/* Edit / follow */}
 
-                {!isEditing ? (
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setIsEditing(true);
-                            setStatus("");
-                        }}
-                        className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                    >
-                        Edit profile
-                    </button>
-                ) : null}
+                <div className="flex flex-wrap items-center gap-3">
+                    {actions}
+
+                    {canEdit && !isEditing ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsEditing(true);
+                                setStatus("");
+                            }}
+                            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                        >
+                            Edit profile
+                        </button>
+                    ) : null}
+                </div>
             </div>
 
             {/* =========================
@@ -228,7 +236,7 @@ export function ProfilePanel({
                         </p>
                     </div>
 
-                    {currentUser?.email ? (
+                    {canEdit && currentUser?.email ? (
                         <div className="rounded-2xl bg-slate-50 p-4">
                             <p className="text-sm font-semibold text-slate-700">
                                 Email
@@ -246,7 +254,7 @@ export function ProfilePanel({
                 Edit mode
                 ========================= */}
 
-            {isEditing ? (
+            {canEdit && isEditing ? (
                 <div className="mt-6 space-y-5">
                     <div>
                         <p className="text-lg font-semibold text-slate-900">

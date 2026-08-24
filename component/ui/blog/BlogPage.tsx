@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AuthorAvatar } from "./AuthorAvatar";
 import { BlogHero } from "./BlogHero";
 import { BlogPostForm } from "./BlogPostForm";
 import { BlogPostList } from "./BlogPostList";
-import { ProfilePanel } from "./ProfilePanel";
 import { useBlogPosts } from "./useBlogPosts";
 import type { Profile } from "./types";
 
@@ -54,7 +54,7 @@ export function BlogPage() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [sessionEmail, setSessionEmail] = useState<string | null>(null);
 
-    const [view, setView] = useState<"timeline" | "profile" | "compose">(
+    const [view, setView] = useState<"timeline" | "compose">(
         "timeline",
     );
 
@@ -193,27 +193,28 @@ export function BlogPage() {
         router.replace("/login");
     };
 
-    /*
-     * =========================
-     * Profile saved
-     * =========================
-     */
-
-    const handleProfileSaved = () => {
-        if (!currentUser) {
+    const openOwnProfile = () => {
+        if (profile?.username) {
+            router.push(`/profile/${profile.username}`);
             return;
         }
 
-        void fetch(`/api/profile?userId=${currentUser.id}`).then(
-            async (response) => {
-                if (!response.ok) {
-                    return;
-                }
+        if (currentUser?.id) {
+            void fetch(`/api/profile?userId=${currentUser.id}`).then(
+                async (response) => {
+                    if (!response.ok) {
+                        return;
+                    }
 
-                const data = (await response.json()) as Profile;
-                setProfile(data);
-            },
-        );
+                    const data = (await response.json()) as Profile;
+                    setProfile(data);
+
+                    if (data.username) {
+                        router.push(`/profile/${data.username}`);
+                    }
+                },
+            );
+        }
     };
 
     return (
@@ -289,12 +290,8 @@ export function BlogPage() {
 
                                         <button
                                             type="button"
-                                            onClick={() => setView("profile")}
-                                            className={`rounded-full px-3 py-2 text-sm font-medium ${
-                                                view === "profile"
-                                                    ? "bg-slate-900 text-white"
-                                                    : "text-slate-700"
-                                            }`}
+                                            onClick={openOwnProfile}
+                                            className="rounded-full px-3 py-2 text-sm font-medium text-slate-700"
                                         >
                                             Profile
                                         </button>
@@ -311,6 +308,28 @@ export function BlogPage() {
                                             NewPost
                                         </button>
                                     </div>
+
+                                    {profile?.username ? (
+                                        <AuthorAvatar
+                                            name={
+                                                profile.displayName ||
+                                                currentUser?.name
+                                            }
+                                            username={profile.username}
+                                            avatarUrl={profile.avatarUrl}
+                                        />
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={openOwnProfile}
+                                            aria-label="Open your profile"
+                                        >
+                                            <AuthorAvatar
+                                                name={currentUser?.name}
+                                                avatarUrl={profile?.avatarUrl}
+                                            />
+                                        </button>
+                                    )}
 
                                     <button
                                         type="button"
@@ -340,35 +359,6 @@ export function BlogPage() {
                 */}
 
                 <BlogHero postCount={posts.length} />
-
-                {/*
-                //*=========================
-                //*Profile
-                //*=========================
-                */}
-
-                {view === "profile" ? (
-                    <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-                        <div className="space-y-8">
-                            <ProfilePanel
-                                currentUser={currentUser}
-                                profile={profile}
-                                onProfileSaved={handleProfileSaved}
-                            />
-                        </div>
-
-                        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                            <h2 className="text-xl font-semibold">
-                                Your account
-                            </h2>
-
-                            <p className="mt-3 text-sm text-slate-600">
-                                Your profile is private to your own account.
-                                Others can only view public content.
-                            </p>
-                        </div>
-                    </section>
-                ) : null}
 
                 {/*
                 //*=========================
