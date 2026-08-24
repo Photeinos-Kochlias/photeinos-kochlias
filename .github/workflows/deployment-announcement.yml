@@ -1,0 +1,299 @@
+name: Deployment Announcement
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for Vercel deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          echo "Waiting for Vercel deployment..."
+
+          DEPLOYMENT_URL=""
+
+          for i in {1..30}
+          do
+            RESPONSE=$(curl -s \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&target=production&limit=10")
+
+            STATUS=$(echo "$RESPONSE" | jq -r \
+              --arg SHA "$COMMIT_SHA" \
+              '.deployments[] | select(.meta.githubCommitSha == $SHA) | .readyState' \
+              | head -n 1)
+
+            URL=$(echo "$RESPONSE" | jq -r \
+              --arg SHA "$COMMIT_SHA" \
+              '.deployments[] | select(.meta.githubCommitSha == $SHA) | .url' \
+              | head -n 1)
+
+            echo "Deployment status: ${STATUS:-not-found}"
+
+            if [ "$STATUS" = "READY" ]; then
+              DEPLOYMENT_URL="https://${URL}"
+
+              echo "Vercel deployment is ready!"
+              echo "Deployment URL: ${DEPLOYMENT_URL}"
+
+              echo "VERCEL_DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> "$GITHUB_ENV"
+
+              break
+            fi
+
+            if [ "$STATUS" = "ERROR" ] || [ "$STATUS" = "CANCELED" ]; then
+              echo "Vercel deployment failed: $STATUS"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          if [ -z "$DEPLOYMENT_URL" ]; then
+            echo "Vercel deployment was not ready within timeout."
+            exit 1
+          fi
+
+      - name: Get previous production deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          RESPONSE=$(curl -s \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&target=production&limit=20")
+
+          PREVIOUS_SHA=$(echo "$RESPONSE" | jq -r \
+            --arg SHA "$CURRENT_SHA" \
+            '[.deployments[] | select(.meta.githubCommitSha != null and .meta.githubCommitSha != $SHA)] | .[0].meta.githubCommitSha // empty')
+
+          echo "PREVIOUS_SHA=${PREVIOUS_SHA}" >> "$GITHUB_ENV"
+
+          echo "Previous SHA: ${PREVIOUS_SHA}"
+
+      - name: Send announcement
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+          CURRENT_SHA: ${{ github.sha }}
+          PREVIOUS_SHA: ${{ env.PREVIOUS_SHA }}
+          VERCEL_DEPLOYMENT_URL: ${{ env.VERCEL_DEPLOYMENT_URL }}
+        run: |
+          node <<'NODE'
+          const githubToken =
+            process.env.GITHUB_TOKEN;
+
+          const repository =
+            process.env.GITHUB_REPOSITORY;
+
+          const currentSha =
+            process.env.CURRENT_SHA;
+
+          const previousSha =
+            process.env.PREVIOUS_SHA;
+
+          const chatWebhook =
+            process.env.GOOGLE_CHAT_WEBHOOK_URL;
+
+          const deploymentUrl =
+            process.env.VERCEL_DEPLOYMENT_URL;
+
+          async function github(url) {
+            const response = await fetch(url, {
+              headers: {
+                Accept:
+                  "application/vnd.github+json",
+
+                Authorization:
+                  `Bearer ${githubToken}`,
+
+                "X-GitHub-Api-Version":
+                  "2022-11-28"
+              }
+            });
+
+            if (!response.ok) {
+              throw new Error(
+                `GitHub API failed: ${response.status} ${await response.text()}`
+              );
+            }
+
+            return response.json();
+          }
+
+          function categorize(message) {
+            const match = message.match(
+              /^(feat|fix|perf|refactor|docs|test|chore)(\(.+\))?:\s*(.+)$/i
+            );
+
+            if (!match) {
+              return [
+                "other",
+                message.split("\n")[0]
+              ];
+            }
+
+            const type =
+              match[1].toLowerCase();
+
+            const text =
+              match[3];
+
+            switch (type) {
+              case "feat":
+                return ["feature", text];
+
+              case "fix":
+                return ["fix", text];
+
+              case "perf":
+              case "refactor":
+                return [
+                  "improvement",
+                  text
+                ];
+
+              case "docs":
+                return ["docs", text];
+
+              case "test":
+                return ["test", text];
+
+              default:
+                return ["other", text];
+            }
+          }
+
+          let commits;
+
+          if (previousSha) {
+            const result =
+              await github(
+                `https://api.github.com/repos/${repository}/compare/${previousSha}...${currentSha}`
+              );
+
+            commits =
+              result.commits;
+
+          } else {
+            const commit =
+              await github(
+                `https://api.github.com/repos/${repository}/commits/${currentSha}`
+              );
+
+            commits = [commit];
+          }
+
+          const groups = {
+            feature: [],
+            fix: [],
+            improvement: [],
+            docs: [],
+            test: [],
+            other: []
+          };
+
+          for (const commit of commits) {
+            const [
+              category,
+              message
+            ] = categorize(
+              commit.commit.message
+            );
+
+            groups[category].push(
+              `・${message}`
+            );
+          }
+
+          const sections = [];
+
+          if (groups.feature.length) {
+            sections.push(
+              `【新機能】\n${groups.feature.join("\n")}`
+            );
+          }
+
+          if (groups.fix.length) {
+            sections.push(
+              `【修正】\n${groups.fix.join("\n")}`
+            );
+          }
+
+          if (groups.improvement.length) {
+            sections.push(
+              `【改善】\n${groups.improvement.join("\n")}`
+            );
+          }
+
+          if (groups.docs.length) {
+            sections.push(
+              `【ドキュメント】\n${groups.docs.join("\n")}`
+            );
+          }
+
+          if (groups.test.length) {
+            sections.push(
+              `【テスト】\n${groups.test.join("\n")}`
+            );
+          }
+
+          if (groups.other.length) {
+            sections.push(
+              `【その他】\n${groups.other.join("\n")}`
+            );
+          }
+
+          const message = [
+            "🚀 Production Deploy",
+            "",
+            ...sections,
+            "",
+            `Deploy: ${deploymentUrl}`
+          ].join("\n");
+
+          console.log(message);
+
+          const response =
+            await fetch(
+              chatWebhook,
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+
+                body: JSON.stringify({
+                  text: message
+                })
+              }
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              `Google Chat failed: ${response.status} ${await response.text()}`
+            );
+          }
+
+          console.log(
+            "Google Chat notification sent."
+          );
+          NODE

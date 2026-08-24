@@ -3,6 +3,8 @@ export type PostReply = {
     content: string;
     authorId?: string;
     authorName?: string;
+    authorUsername?: string;
+    authorAvatarUrl?: string;
     createdAt: string;
 };
 
@@ -14,6 +16,7 @@ export type Post = {
     authorId?: string;
     authorName?: string;
     authorUsername?: string;
+    authorAvatarUrl?: string;
     visibility?: "public" | "private" | "followers";
     imageUrl?: string;
     likes?: number;
