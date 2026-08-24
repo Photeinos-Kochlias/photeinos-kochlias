@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
+import { loadAuthorProfiles, serializePosts } from "@/lib/post-display";
 
 export async function GET(
     _request: Request,
@@ -22,20 +23,12 @@ export async function GET(
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        return NextResponse.json({
-            id: post.id,
-            title: post.title,
-            content: post.content,
-            createdAt: post.createdAt,
-            authorId: post.authorId,
-            authorName: post.authorName,
-            authorUsername: post.authorUsername,
-            visibility: post.visibility,
-            imageUrl: post.imageUrl,
-            likes: post.likes ?? 0,
-            likedBy: post.likedBy ?? [],
-            replies: post.replies ?? [],
-        });
+        const profiles = await loadAuthorProfiles(
+            db.collection("profiles"),
+            [post],
+        );
+
+        return NextResponse.json(serializePosts([post], profiles)[0]);
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: "Failed to fetch post" }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
+import { loadAuthorProfiles, serializePosts } from "@/lib/post-display";
 
 export async function GET() {
     try {
@@ -10,33 +11,25 @@ export async function GET() {
         const posts = await db
             .collection("posts")
             .find({})
-            .sort({ createdAt: -1 })
+            .sort({ id: -1 })
             .toArray();
 
         const visiblePosts = posts.filter((post) => {
-            const isOwner = session?.user?.email && post.authorEmail === session.user.email;
+            const isOwner =
+                session?.user?.email &&
+                post.authorEmail === session.user.email;
             if (isOwner) {
                 return true;
             }
             return post.visibility === "public";
         });
 
-        return NextResponse.json(
-            visiblePosts.map((post) => ({
-                id: post.id,
-                title: post.title,
-                content: post.content,
-                createdAt: post.createdAt,
-                authorId: post.authorId,
-                authorName: post.authorName,
-                authorUsername: post.authorUsername,
-                visibility: post.visibility,
-                imageUrl: post.imageUrl,
-                likes: post.likes ?? 0,
-                likedBy: post.likedBy ?? [],
-                replies: post.replies ?? [],
-            })),
+        const profiles = await loadAuthorProfiles(
+            db.collection("profiles"),
+            visiblePosts,
         );
+
+        return NextResponse.json(serializePosts(visiblePosts, profiles));
     } catch (error) {
         console.error(error);
         return NextResponse.json(
@@ -49,17 +42,36 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
+        const session = await auth();
         const client = await getMongoClient();
         const db = client.db(getDatabaseName());
+
+        const authorId =
+            session?.user?.id || body.authorId || "guest";
+        const profile =
+            authorId !== "guest"
+                ? await db.collection("profiles").findOne({
+                      userId: authorId,
+                  })
+                : null;
 
         const newPost = {
             id: Date.now(),
             title: body.title,
             content: body.content,
-            authorId: body.authorId || "guest",
-            authorName: body.authorName || "Anonymous",
-            authorUsername: body.authorUsername || "",
-            authorEmail: body.authorEmail || "",
+            authorId,
+            authorName:
+                profile?.displayName ||
+                body.authorName ||
+                session?.user?.name ||
+                "Anonymous",
+            authorUsername:
+                profile?.username || body.authorUsername || "",
+            authorEmail:
+                profile?.email ||
+                body.authorEmail ||
+                session?.user?.email ||
+                "",
             visibility: body.visibility || "public",
             imageUrl: body.imageUrl || "",
             likes: 0,
@@ -74,7 +86,13 @@ export async function POST(request: Request) {
 
         await db.collection("posts").insertOne(newPost);
 
-        return NextResponse.json(newPost, { status: 201 });
+        return NextResponse.json(
+            {
+                ...newPost,
+                authorAvatarUrl: profile?.avatarUrl || "",
+            },
+            { status: 201 },
+        );
     } catch (error) {
         console.error(error);
         return NextResponse.json(
