@@ -4,12 +4,13 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
 
-function slugify(value: string) {
-    return value
+function slugify(value: string, fallback = "") {
+    const slug = value
         .toLowerCase()
         .trim()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
+    return slug || fallback;
 }
 
 export async function GET(request: Request) {
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
                 isPublic: true,
             }),
             username:
-                profile?.username || slugify(profile?.displayName || userId),
+                profile?.username || slugify(profile?.displayName || "", userId),
             email: profile?.email || "",
             followers: profile?.followers || [],
             following: profile?.following || [],
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
         const displayName = String(body.displayName || sessionDisplayName || sessionEmail || "User").trim();
         const username =
             body.username ||
-            slugify(displayName || body.email || sessionEmail || sessionUserId || "user");
+            slugify(displayName || body.email || sessionEmail || "", sessionUserId || "user");
 
         const updatedProfile = {
             userId: sessionUserId,

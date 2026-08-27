@@ -53,7 +53,8 @@ export function ProfilePanel({
         const nextUsername =
             username.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/(^-|-$)/g, "") ||
             profile?.username ||
-            currentUser.name.toLowerCase().replace(/\s+/g, "-");
+            currentUser.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/(^-|-$)/g, "") ||
+            currentUser.id;
 
         try {
             setStatus("Saving...");
