@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 type AuthorAvatarProps = {
     name?: string;
@@ -21,15 +22,22 @@ export function AuthorAvatar({
     avatarUrl,
     size = "md",
 }: AuthorAvatarProps) {
+    const [imgError, setImgError] = useState(false);
+
+    useEffect(() => {
+        setImgError(false);
+    }, [avatarUrl]);
+
     const displayName = name || "Anonymous";
     const initial = displayName.charAt(0).toUpperCase();
     const className = `flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 font-semibold text-white ${sizeClass[size]}`;
 
-    const content = avatarUrl ? (
+    const content = avatarUrl && !imgError ? (
         <img
             src={avatarUrl}
             alt={displayName}
             className="h-full w-full object-cover"
+            onError={() => setImgError(true)}
         />
     ) : (
         initial

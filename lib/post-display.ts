@@ -1,6 +1,53 @@
 import type { Collection, Document } from "mongodb";
 import type { Post, PostReply } from "@/component/ui/blog/types";
 
+export function slugify(value: string): string {
+    return value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+}
+
+export function generateUsername(
+    preferredUsername?: string,
+    displayName?: string,
+    email?: string,
+    userId?: string,
+): string {
+    if (preferredUsername) {
+        const slug = slugify(preferredUsername);
+        if (slug) {
+            return slug;
+        }
+    }
+
+    if (displayName) {
+        const slug = slugify(displayName);
+        if (slug) {
+            return slug;
+        }
+    }
+
+    if (email) {
+        const localPart = email.split("@")[0] || "";
+        const slug = slugify(localPart);
+        if (slug) {
+            return slug;
+        }
+    }
+
+    if (userId) {
+        const slug = slugify(userId);
+        if (slug) {
+            return slug;
+        }
+        return `user-${userId.slice(-6)}`;
+    }
+
+    return `user-${Date.now().toString(36)}`;
+}
+
 export type AuthorProfile = {
     userId?: string;
     email?: string;
@@ -26,6 +73,7 @@ type PostDocument = Document & {
         id: number;
         content: string;
         authorId?: string;
+        authorEmail?: string;
         authorName?: string;
         authorUsername?: string;
         createdAt: string;
@@ -61,11 +109,11 @@ function findProfile(
     if (authorId && indexes.byUserId.has(authorId)) {
         return indexes.byUserId.get(authorId);
     }
-    if (authorUsername && indexes.byUsername.has(authorUsername)) {
-        return indexes.byUsername.get(authorUsername);
-    }
     if (authorEmail && indexes.byEmail.has(authorEmail)) {
         return indexes.byEmail.get(authorEmail);
+    }
+    if (authorUsername && indexes.byUsername.has(authorUsername)) {
+        return indexes.byUsername.get(authorUsername);
     }
     return undefined;
 }
@@ -76,20 +124,48 @@ export function serializePost(
     replyProfiles?: ReturnType<typeof indexProfiles>,
 ): Post {
     const replies = (post.replies || []).map((reply) => {
+        const replyEmail = (reply as { authorEmail?: string }).authorEmail;
         const replyProfile = replyProfiles
-            ? findProfile(replyProfiles, reply.authorId, reply.authorUsername)
+            ? findProfile(
+                  replyProfiles,
+                  reply.authorId,
+                  reply.authorUsername,
+                  replyEmail,
+              )
             : undefined;
+
+        const authorName = replyProfile?.displayName || reply.authorName;
+        const authorUsername =
+            replyProfile?.username ||
+            reply.authorUsername ||
+            generateUsername(
+                undefined,
+                authorName,
+                replyEmail,
+                reply.authorId,
+            );
 
         return {
             id: reply.id,
             content: reply.content,
             authorId: reply.authorId,
-            authorName: replyProfile?.displayName || reply.authorName,
-            authorUsername: replyProfile?.username || reply.authorUsername,
+            authorName,
+            authorUsername,
             authorAvatarUrl: replyProfile?.avatarUrl || "",
             createdAt: reply.createdAt,
         } satisfies PostReply;
     });
+
+    const authorName = profile?.displayName || post.authorName;
+    const authorUsername =
+        profile?.username ||
+        post.authorUsername ||
+        generateUsername(
+            undefined,
+            authorName,
+            post.authorEmail,
+            post.authorId,
+        );
 
     return {
         id: Number(post.id),
@@ -97,8 +173,8 @@ export function serializePost(
         content: post.content || "",
         createdAt: post.createdAt || "",
         authorId: post.authorId,
-        authorName: profile?.displayName || post.authorName,
-        authorUsername: profile?.username || post.authorUsername,
+        authorName,
+        authorUsername,
         authorAvatarUrl: profile?.avatarUrl || "",
         visibility: post.visibility,
         imageUrl: post.imageUrl,
@@ -133,6 +209,9 @@ export async function loadAuthorProfiles(
             }
             if (typeof reply.authorUsername === "string") {
                 usernames.add(reply.authorUsername);
+            }
+            if (typeof reply.authorEmail === "string") {
+                emails.add(reply.authorEmail);
             }
         }
     }

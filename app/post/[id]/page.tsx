@@ -18,7 +18,9 @@ export default function PostDetailPage() {
     useEffect(() => {
         const loadPost = async () => {
             try {
-                const response = await fetch(`/api/posts/${params.id}`);
+                const response = await fetch(`/api/posts/${params.id}`, {
+                    cache: "no-store",
+                });
 
                 if (!response.ok) {
                     setStatus("Failed to load post");
@@ -30,12 +32,13 @@ export default function PostDetailPage() {
                 setPost(data);
                 setStatus("Ready to reply");
 
-                // 投稿者プロフィールを取得
-                if (data.authorId) {
+                // 投稿者プロフィールを取得 (guest以外)
+                if (data.authorId && data.authorId !== "guest") {
                     const profileResponse = await fetch(
                         `/api/profile?userId=${encodeURIComponent(
                             data.authorId,
                         )}`,
+                        { cache: "no-store" },
                     );
 
                     if (profileResponse.ok) {
@@ -52,6 +55,18 @@ export default function PostDetailPage() {
         };
 
         void loadPost();
+
+        const handleSync = () => {
+            void loadPost();
+        };
+
+        window.addEventListener("profile-updated", handleSync);
+        window.addEventListener("focus", handleSync);
+
+        return () => {
+            window.removeEventListener("profile-updated", handleSync);
+            window.removeEventListener("focus", handleSync);
+        };
     }, [params.id]);
 
     const submitReply = async () => {

@@ -7,7 +7,7 @@ import type { CurrentUser, Profile } from "./types";
 type ProfilePanelProps = {
     currentUser: CurrentUser | null;
     profile: Profile | null;
-    onProfileSaved: () => void;
+    onProfileSaved?: (updatedProfile: Profile) => void;
     canEdit?: boolean;
     actions?: ReactNode;
 };
@@ -24,6 +24,7 @@ export function ProfilePanel({
     const [isEditing, setIsEditing] = useState(false);
 
     const [displayName, setDisplayName] = useState("");
+    const [username, setUsername] = useState("");
     const [bio, setBio] = useState("");
     const [avatarUrl, setAvatarUrl] = useState("");
     const [isPublic, setIsPublic] = useState(true);
@@ -34,6 +35,7 @@ export function ProfilePanel({
 
     useEffect(() => {
         setDisplayName(profile?.displayName || "");
+        setUsername(profile?.username || "");
         setBio(profile?.bio || "");
         setAvatarUrl(profile?.avatarUrl || "");
         setIsPublic(profile?.isPublic ?? true);
@@ -48,6 +50,11 @@ export function ProfilePanel({
 
         const nextDisplayName =
             displayName.trim() || currentUser.name || "User";
+        const nextUsername =
+            username.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/(^-|-$)/g, "") ||
+            profile?.username ||
+            currentUser.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/(^-|-$)/g, "") ||
+            currentUser.id;
 
         try {
             setStatus("Saving...");
@@ -60,11 +67,7 @@ export function ProfilePanel({
                 },
                 body: JSON.stringify({
                     userId: currentUser.id,
-                    username:
-                        profile?.username ||
-                        currentUser.name
-                            .toLowerCase()
-                            .replace(/\s+/g, "-"),
+                    username: nextUsername,
                     email: currentUser.email,
                     displayName: nextDisplayName,
                     bio: bio.trim(),
@@ -83,11 +86,30 @@ export function ProfilePanel({
                 );
             }
 
-            setStatus("Profile saved.");
+            const data = (await response.json()) as { ok: boolean; profile?: Profile };
+            const savedProfile: Profile = data.profile || {
+                userId: currentUser.id,
+                username: nextUsername,
+                email: currentUser.email,
+                displayName: nextDisplayName,
+                bio: bio.trim(),
+                avatarUrl: avatarUrl.trim(),
+                isPublic,
+                followers: profile?.followers || [],
+                following: profile?.following || [],
+            };
 
+            setStatus("Profile saved.");
             setIsEditing(false);
 
-            onProfileSaved();
+            // アプリ全体の同期通知
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                    new CustomEvent("profile-updated", { detail: savedProfile }),
+                );
+            }
+
+            onProfileSaved?.(savedProfile);
         } catch (error) {
             console.error(error);
 
@@ -101,6 +123,7 @@ export function ProfilePanel({
 
     const cancelEdit = () => {
         setDisplayName(profile?.displayName || "");
+        setUsername(profile?.username || "");
         setBio(profile?.bio || "");
         setAvatarUrl(profile?.avatarUrl || "");
         setIsPublic(profile?.isPublic ?? true);
@@ -142,12 +165,26 @@ export function ProfilePanel({
         }
     };
 
+    const [imgError, setImgError] = useState(false);
+
     const profileDisplayName =
         profile?.displayName ||
         currentUser?.name ||
         "Anonymous";
 
-    const initial = profileDisplayName
+    const displayAvatarUrl = isEditing
+        ? avatarUrl.trim()
+        : (profile?.avatarUrl?.trim() || "");
+
+    useEffect(() => {
+        setImgError(false);
+    }, [displayAvatarUrl]);
+
+    const activeDisplayName = isEditing
+        ? (displayName.trim() || profileDisplayName)
+        : profileDisplayName;
+
+    const initial = activeDisplayName
         .charAt(0)
         .toUpperCase();
 
@@ -160,11 +197,12 @@ export function ProfilePanel({
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-2xl font-semibold text-white">
-                        {profile?.avatarUrl ? (
+                        {displayAvatarUrl && !imgError ? (
                             <img
-                                src={profile.avatarUrl}
-                                alt={profileDisplayName}
+                                src={displayAvatarUrl}
+                                alt={activeDisplayName}
                                 className="h-full w-full object-cover"
+                                onError={() => setImgError(true)}
                             />
                         ) : (
                             initial
@@ -177,7 +215,7 @@ export function ProfilePanel({
                         </p>
 
                         <h2 className="mt-1 text-2xl font-semibold text-slate-900">
-                            {profileDisplayName}
+                            {activeDisplayName}
                         </h2>
 
                         {profile?.username ? (
@@ -278,6 +316,23 @@ export function ProfilePanel({
                                     event.target.value,
                                 )
                             }
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                        />
+                    </label>
+
+                    <label className="block">
+                        <span className="mb-2 block text-sm font-medium text-slate-700">
+                            Username
+                        </span>
+
+                        <input
+                            value={username}
+                            onChange={(event) =>
+                                setUsername(
+                                    event.target.value,
+                                )
+                            }
+                            placeholder="username"
                             className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                         />
                     </label>

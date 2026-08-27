@@ -75,17 +75,43 @@ export function BlogPage() {
                 return;
             }
 
-            const response = await fetch(
-                `/api/profile?userId=${currentUser.id}`,
-            );
+            try {
+                const response = await fetch(
+                    `/api/profile?userId=${currentUser.id}`,
+                    { cache: "no-store" },
+                );
 
-            if (response.ok) {
-                const data = (await response.json()) as Profile;
-                setProfile(data);
+                if (response.ok) {
+                    const data = (await response.json()) as Profile;
+                    setProfile(data);
+                }
+            } catch (error) {
+                console.error(error);
             }
         };
 
         void loadProfile();
+
+        const handleProfileUpdated = (event: Event) => {
+            const customEvent = event as CustomEvent<Profile>;
+            if (customEvent.detail) {
+                setProfile(customEvent.detail);
+            } else {
+                void loadProfile();
+            }
+        };
+
+        const handleFocus = () => {
+            void loadProfile();
+        };
+
+        window.addEventListener("profile-updated", handleProfileUpdated);
+        window.addEventListener("focus", handleFocus);
+
+        return () => {
+            window.removeEventListener("profile-updated", handleProfileUpdated);
+            window.removeEventListener("focus", handleFocus);
+        };
     }, [currentUser]);
 
     /*
