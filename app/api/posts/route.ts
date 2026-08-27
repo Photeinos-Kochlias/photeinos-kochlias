@@ -48,10 +48,15 @@ export async function POST(request: Request) {
 
         const authorId =
             session?.user?.id || body.authorId || "guest";
+        const sessionEmail = session?.user?.email || body.authorEmail || "";
+
         const profile =
-            authorId !== "guest"
+            authorId !== "guest" || sessionEmail
                 ? await db.collection("profiles").findOne({
-                      userId: authorId,
+                      $or: [
+                          ...(authorId !== "guest" ? [{ userId: authorId }] : []),
+                          ...(sessionEmail ? [{ email: sessionEmail }] : []),
+                      ],
                   })
                 : null;
 

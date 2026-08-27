@@ -14,21 +14,27 @@ export async function POST(
         const db = client.db(getDatabaseName());
 
         const authorId = session?.user?.id || "guest";
+        const sessionEmail = session?.user?.email || "";
+
         const profile =
-            authorId !== "guest"
+            authorId !== "guest" || sessionEmail
                 ? await db.collection("profiles").findOne({
-                      userId: authorId,
-                  })
+                    $or: [
+                        ...(authorId !== "guest"
+                            ? [{ userId: authorId }]
+                            : []),
+                        ...(sessionEmail ? [{ email: sessionEmail }] : []),
+                    ],
+                })
                 : null;
 
         const reply = {
             id: Date.now(),
             content: String(body.content || "").trim(),
             authorId,
+            authorEmail: sessionEmail,
             authorName:
-                profile?.displayName ||
-                session?.user?.name ||
-                "Anonymous",
+                profile?.displayName || session?.user?.name || "Anonymous",
             authorUsername: profile?.username || "",
             createdAt: new Date().toLocaleDateString("ja-JP", {
                 year: "numeric",
@@ -38,13 +44,15 @@ export async function POST(
         };
 
         if (!reply.content) {
-            return NextResponse.json({ error: "Reply is required" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Reply is required" },
+                { status: 400 },
+            );
         }
 
-        await db.collection("posts").updateOne(
-            { id: Number(id) },
-            { $push: { replies: reply } } as never,
-        );
+        await db.collection("posts").updateOne({ id: Number(id) }, {
+            $push: { replies: reply },
+        } as never);
 
         return NextResponse.json(
             {
@@ -55,6 +63,9 @@ export async function POST(
         );
     } catch (error) {
         console.error(error);
-        return NextResponse.json({ error: "Failed to add reply" }, { status: 500 });
+        return NextResponse.json(
+            { error: "Failed to add reply" },
+            { status: 500 },
+        );
     }
 }

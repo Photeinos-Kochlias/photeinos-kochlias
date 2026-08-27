@@ -76,11 +76,24 @@ export function useBlogPosts() {
     };
 
     /*
-     * 初期ロード
+     * 初期ロード & 同期イベントリスナー
      */
     useEffect(() => {
         void loadPosts();
         void loadCurrentUser();
+
+        const handleSync = () => {
+            void loadPosts();
+            void loadCurrentUser();
+        };
+
+        window.addEventListener("profile-updated", handleSync);
+        window.addEventListener("focus", handleSync);
+
+        return () => {
+            window.removeEventListener("profile-updated", handleSync);
+            window.removeEventListener("focus", handleSync);
+        };
     }, []);
 
     /*
@@ -511,5 +524,8 @@ export function useBlogPosts() {
 
         postCreatedMessage,
         setPostCreatedMessage,
+
+        loadPosts,
+        loadCurrentUser,
     };
 }
