@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
 
@@ -71,27 +73,100 @@ export async function POST(request: Request) {
             body.username ||
             slugify(displayName || body.email || sessionEmail || sessionUserId || "user");
 
-        const result = await db.collection("profiles").updateOne(
+        const updatedProfile = {
+            userId: sessionUserId,
+            username,
+            email: body.email || sessionEmail,
+            displayName,
+            bio: body.bio ?? "",
+            avatarUrl: body.avatarUrl || "",
+            isPublic: body.isPublic ?? true,
+            followers: body.followers || [],
+            following: body.following || [],
+        };
+
+        // 1. profiles コレクション更新
+        await db.collection("profiles").updateOne(
             { userId: sessionUserId },
             {
-                $set: {
-                    userId: sessionUserId,
-                    username,
-                    email: body.email || sessionEmail,
-                    displayName,
-                    bio: body.bio ?? "",
-                    avatarUrl: body.avatarUrl || "",
-                    isPublic: body.isPublic ?? true,
-                    followers: body.followers || [],
-                    following: body.following || [],
-                },
+                $set: updatedProfile,
             },
             { upsert: true },
         );
 
+        // 2. users コレクション更新 (displayName, username)
+        const userUpdate = {
+            displayName,
+            username,
+        };
+        try {
+            if (ObjectId.isValid(sessionUserId)) {
+                await db.collection("users").updateOne(
+                    { _id: new ObjectId(sessionUserId) },
+                    { $set: userUpdate },
+                );
+            }
+        } catch {
+            // ignore ObjectId parse error
+        }
+        await db.collection("users").updateOne(
+            { email: sessionEmail },
+            { $set: userUpdate },
+        );
+
+        // 3. posts コレクション内の該当ユーザー投稿 (authorName, authorUsername) を一括更新
+        await db.collection("posts").updateMany(
+            {
+                $or: [
+                    { authorId: sessionUserId },
+                    { authorEmail: sessionEmail },
+                ],
+            },
+            {
+                $set: {
+                    authorName: displayName,
+                    authorUsername: username,
+                },
+            },
+        );
+
+        // 4. posts コレクション内の replies 配列 (replies.authorId) の authorName, authorUsername も更新
+        await db.collection("posts").updateMany(
+            { "replies.authorId": sessionUserId },
+            {
+                $set: {
+                    "replies.$[elem].authorName": displayName,
+                    "replies.$[elem].authorUsername": username,
+                },
+            },
+            {
+                arrayFilters: [{ "elem.authorId": sessionUserId }],
+            },
+        );
+
+        // 5. blog-auth クッキーの更新 (セッション情報の即時同期)
+        const cookieStore = await cookies();
+        cookieStore.set(
+            "blog-auth",
+            JSON.stringify({
+                email: sessionEmail,
+                id: sessionUserId,
+                name: displayName,
+                displayName,
+                username,
+            }),
+            {
+                httpOnly: true,
+                sameSite: "lax",
+                path: "/",
+                maxAge: 60 * 60 * 24 * 7,
+                secure: process.env.NODE_ENV === "production",
+            },
+        );
+
         return NextResponse.json({
             ok: true,
-            modifiedCount: result.modifiedCount || result.upsertedCount || 0,
+            profile: updatedProfile,
         });
     } catch (error) {
         console.error(error);

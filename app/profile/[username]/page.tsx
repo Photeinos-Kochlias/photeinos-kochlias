@@ -35,27 +35,43 @@ function toProfile(document: {
 }
 
 async function getProfile(username: string) {
+    const decodedUsername = decodeURIComponent(username);
     const client = await getMongoClient();
     const db = client.db(getDatabaseName());
 
     return db.collection("profiles").findOne({
-        username,
+        $or: [
+            { username: decodedUsername },
+            { username },
+            { userId: decodedUsername },
+            { email: decodedUsername },
+        ],
     });
 }
 
 async function getPostsByAuthor(
     userId: string,
     username: string,
+    email: string | undefined,
     isOwner: boolean,
 ) {
     const client = await getMongoClient();
     const db = client.db(getDatabaseName());
 
+    const filters = [];
+    if (userId) {
+        filters.push({ authorId: userId });
+    }
+    if (username) {
+        filters.push({ authorUsername: username });
+    }
+    if (email) {
+        filters.push({ authorEmail: email });
+    }
+
     const posts = await db
         .collection("posts")
-        .find({
-            $or: [{ authorId: userId }, { authorUsername: username }],
-        })
+        .find(filters.length > 0 ? { $or: filters } : {})
         .sort({
             id: -1,
         })
@@ -165,6 +181,7 @@ export default async function ProfilePage({
     const posts = await getPostsByAuthor(
         profile.userId,
         profile.username || username,
+        profile.email,
         isOwner,
     );
 

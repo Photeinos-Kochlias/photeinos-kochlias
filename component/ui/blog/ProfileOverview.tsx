@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { FollowButton } from "./FollowButton";
 import { ProfilePanel } from "./ProfilePanel";
 import type { CurrentUser, Profile } from "./types";
@@ -13,20 +14,33 @@ type ProfileOverviewProps = {
 };
 
 export function ProfileOverview({
-    profile,
+    profile: initialProfile,
     isOwner,
     currentUser,
     isFollowing,
 }: ProfileOverviewProps) {
     const router = useRouter();
+    const [profile, setProfile] = useState<Profile>(initialProfile);
+
+    useEffect(() => {
+        setProfile(initialProfile);
+    }, [initialProfile]);
 
     return (
         <ProfilePanel
             currentUser={isOwner ? currentUser : null}
             profile={profile}
             canEdit={isOwner}
-            onProfileSaved={() => {
-                router.refresh();
+            onProfileSaved={(updatedProfile) => {
+                setProfile(updatedProfile);
+                if (
+                    updatedProfile.username &&
+                    updatedProfile.username !== initialProfile.username
+                ) {
+                    router.push(`/profile/${updatedProfile.username}`);
+                } else {
+                    router.refresh();
+                }
             }}
             actions={
                 !isOwner ? (

@@ -26,6 +26,7 @@ type PostDocument = Document & {
         id: number;
         content: string;
         authorId?: string;
+        authorEmail?: string;
         authorName?: string;
         authorUsername?: string;
         createdAt: string;
@@ -61,11 +62,11 @@ function findProfile(
     if (authorId && indexes.byUserId.has(authorId)) {
         return indexes.byUserId.get(authorId);
     }
-    if (authorUsername && indexes.byUsername.has(authorUsername)) {
-        return indexes.byUsername.get(authorUsername);
-    }
     if (authorEmail && indexes.byEmail.has(authorEmail)) {
         return indexes.byEmail.get(authorEmail);
+    }
+    if (authorUsername && indexes.byUsername.has(authorUsername)) {
+        return indexes.byUsername.get(authorUsername);
     }
     return undefined;
 }
@@ -77,7 +78,12 @@ export function serializePost(
 ): Post {
     const replies = (post.replies || []).map((reply) => {
         const replyProfile = replyProfiles
-            ? findProfile(replyProfiles, reply.authorId, reply.authorUsername)
+            ? findProfile(
+                  replyProfiles,
+                  reply.authorId,
+                  reply.authorUsername,
+                  (reply as { authorEmail?: string }).authorEmail,
+              )
             : undefined;
 
         return {
@@ -133,6 +139,9 @@ export async function loadAuthorProfiles(
             }
             if (typeof reply.authorUsername === "string") {
                 usernames.add(reply.authorUsername);
+            }
+            if (typeof reply.authorEmail === "string") {
+                emails.add(reply.authorEmail);
             }
         }
     }
