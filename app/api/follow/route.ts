@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(request: Request) {
     try {
@@ -61,6 +62,15 @@ export async function POST(request: Request) {
                 { $set: { followers: nextFollowers } },
                 { upsert: true },
             );
+
+        if (willFollow) {
+            await createNotification(db.collection("notifications"), {
+                recipientId: body.targetUserId,
+                actorId: currentUserId,
+                actorName: currentProfile?.displayName || session.user.name || "Someone",
+                type: "follow",
+            });
+        }
 
         return NextResponse.json({
             following: willFollow,

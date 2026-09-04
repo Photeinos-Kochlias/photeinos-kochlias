@@ -6,6 +6,7 @@ import { AuthorAvatar } from "./AuthorAvatar";
 import { BlogHero } from "./BlogHero";
 import { BlogPostForm } from "./BlogPostForm";
 import { BlogPostList } from "./BlogPostList";
+import { NotificationBell } from "./NotificationBell";
 import { useBlogPosts } from "./useBlogPosts";
 import type { Profile } from "./types";
 
@@ -334,6 +335,16 @@ export function BlogPage() {
                                             NewPost
                                         </button>
                                     </div>
+
+                                    <NotificationBell userId={currentUser?.id} />
+
+                                    <button
+                                        type="button"
+                                        onClick={() => router.push("/search")}
+                                        className="rounded-full border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                                    >
+                                        Search
+                                    </button>
 
                                     {profile?.username ? (
                                         <AuthorAvatar

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
 import { loadAuthorProfiles, serializePosts } from "@/lib/post-display";
+import { createNotification } from "@/lib/notifications";
 
 export async function GET() {
     try {
@@ -90,6 +91,21 @@ export async function POST(request: Request) {
         };
 
         await db.collection("posts").insertOne(newPost);
+
+        const followers = Array.isArray(profile?.followers)
+            ? profile.followers
+            : [];
+        await Promise.all(
+            followers.map((recipientId: string) =>
+                createNotification(db.collection("notifications"), {
+                    recipientId,
+                    actorId: authorId,
+                    actorName: newPost.authorName,
+                    type: "post",
+                    postId: newPost.id,
+                }),
+            ),
+        );
 
         return NextResponse.json(
             {
