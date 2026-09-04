@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(
     request: Request,
@@ -12,6 +13,11 @@ export async function POST(
         const body = await request.json();
         const client = await getMongoClient();
         const db = client.db(getDatabaseName());
+        const post = await db.collection("posts").findOne({ id: Number(id) });
+
+        if (!post) {
+            return NextResponse.json({ error: "Post not found" }, { status: 404 });
+        }
 
         const authorId = session?.user?.id || "guest";
         const sessionEmail = session?.user?.email || "";
@@ -53,6 +59,14 @@ export async function POST(
         await db.collection("posts").updateOne({ id: Number(id) }, {
             $push: { replies: reply },
         } as never);
+
+        await createNotification(db.collection("notifications"), {
+            recipientId: String(post.authorId || ""),
+            actorId: authorId,
+            actorName: reply.authorName,
+            type: "reply",
+            postId: Number(id),
+        });
 
         return NextResponse.json(
             {

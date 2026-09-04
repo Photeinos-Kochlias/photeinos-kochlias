@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
     title: "MURMUR",
-    description: "not yet", //!must update
+    description: "MURMURは、ユーザー同士で投稿を共有し、フォローやいいね、返信を通じて交流できるソーシャルブログプラットフォームです。", //!must update
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

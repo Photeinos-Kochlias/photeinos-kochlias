@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(
     request: Request,
@@ -7,7 +9,13 @@ export async function POST(
 ) {
     try {
         const { id } = await params;
-        const body = await request.json();
+        const session = await auth();
+        const userId = session?.user?.id;
+
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const client = await getMongoClient();
         const db = client.db(getDatabaseName());
 
@@ -20,11 +28,11 @@ export async function POST(
         }
 
         const likedBy = Array.isArray(post.likedBy) ? post.likedBy : [];
-        const hasLiked = likedBy.includes(body.userId);
+        const hasLiked = likedBy.includes(userId);
 
         const updatedLikedBy = hasLiked
-            ? likedBy.filter((value: string) => value !== body.userId)
-            : [...likedBy, body.userId];
+            ? likedBy.filter((value: string) => value !== userId)
+            : [...likedBy, userId];
 
         await db
             .collection("posts")
@@ -37,6 +45,16 @@ export async function POST(
                     },
                 },
             );
+
+        if (!hasLiked) {
+            await createNotification(db.collection("notifications"), {
+                recipientId: String(post.authorId || ""),
+                actorId: userId,
+                actorName: session.user.name || "Someone",
+                type: "like",
+                postId: Number(id),
+            });
+        }
 
         return NextResponse.json({
             ok: true,
