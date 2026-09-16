@@ -1,34 +1,21 @@
 import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/security";
 
 export async function auth() {
     const cookieStore = await cookies();
-    const value = cookieStore.get("blog-auth")?.value;
+    const value = cookieStore.get(SESSION_COOKIE)?.value;
 
     if (!value) {
         return null;
     }
 
     try {
-        const parsed = JSON.parse(value) as {
-            email?: string;
-            id?: string;
-            name?: string;
-            displayName?: string;
-            username?: string;
-        };
-        if (!parsed.email) {
+        const user = verifySessionToken(value);
+        if (!user) {
             return null;
         }
 
-        return {
-            user: {
-                email: parsed.email,
-                id: parsed.id || parsed.email,
-                name: parsed.name || parsed.displayName || parsed.email,
-                displayName: parsed.displayName || parsed.name || parsed.email,
-                username: parsed.username || parsed.displayName || parsed.email,
-            },
-        };
+        return { user };
     } catch {
         return null;
     }

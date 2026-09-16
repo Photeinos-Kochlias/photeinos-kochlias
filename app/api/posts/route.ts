@@ -42,14 +42,25 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
         const session = await auth();
+        if (!session?.user?.id || !session.user.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const body = await request.json();
+        const title = String(body.title || "").trim();
+        const content = String(body.content || "").trim();
+        const visibility = body.visibility === "private" ? "private" : "public";
+        const imageUrl = String(body.imageUrl || "").trim();
+        if (!title || !content || title.length > 200 || content.length > 10000 || imageUrl.length > 2048) {
+            return NextResponse.json({ error: "Invalid post content" }, { status: 400 });
+        }
+
         const client = await getMongoClient();
         const db = client.db(getDatabaseName());
 
-        const authorId =
-            session?.user?.id || body.authorId || "guest";
-        const sessionEmail = session?.user?.email || body.authorEmail || "";
+        const authorId = session.user.id;
+        const sessionEmail = session.user.email;
 
         const profile =
             authorId !== "guest" || sessionEmail
@@ -63,23 +74,19 @@ export async function POST(request: Request) {
 
         const newPost = {
             id: Date.now(),
-            title: body.title,
-            content: body.content,
+            title,
+            content,
             authorId,
             authorName:
                 profile?.displayName ||
-                body.authorName ||
-                session?.user?.name ||
+                session.user.name ||
                 "Anonymous",
             authorUsername:
-                profile?.username || body.authorUsername || "",
+                profile?.username || session.user.username || "",
             authorEmail:
-                profile?.email ||
-                body.authorEmail ||
-                session?.user?.email ||
-                "",
-            visibility: body.visibility || "public",
-            imageUrl: body.imageUrl || "",
+                profile?.email || sessionEmail,
+            visibility,
+            imageUrl,
             likes: 0,
             likedBy: [],
             replies: [],

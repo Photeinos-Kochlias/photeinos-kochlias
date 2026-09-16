@@ -52,16 +52,23 @@ export async function PATCH(
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
+        const title = String(body.title || "").trim();
+        const content = String(body.content || "").trim();
+        const imageUrl = String(body.imageUrl || "").trim();
+        if (!title || !content || title.length > 200 || content.length > 10000 || imageUrl.length > 2048) {
+            return NextResponse.json({ error: "Invalid post content" }, { status: 400 });
+        }
+
         const result = await db
             .collection("posts")
             .updateOne(
                 { id: Number(id) },
                 {
                     $set: {
-                        title: body.title,
-                        content: body.content,
-                        visibility: body.visibility || "public",
-                        imageUrl: body.imageUrl || "",
+                        title,
+                        content,
+                        visibility: body.visibility === "private" ? "private" : "public",
+                        imageUrl,
                     },
                 },
             );

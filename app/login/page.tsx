@@ -34,7 +34,7 @@ export default function LoginPage() {
         <main className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
             <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900/80 p-8 shadow-2xl">
                 <h1 className="text-2xl font-semibold">Sign in</h1>
-                <p className="mt-2 text-sm text-slate-400">Use your email and password to continue.</p>
+                <p className="mt-2 text-sm text-slate-400">Enter your email and password to continue.</p>
                 <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                     <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3" required />
                     <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" className="w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3" required />

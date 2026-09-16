@@ -29,18 +29,15 @@ export async function GET(request: Request) {
 
         const profile = await db.collection("profiles").findOne({ userId });
         return NextResponse.json({
-            ...(profile || {
-                userId,
-                displayName: "Anonymous",
-                bio: "",
-                avatarUrl: "",
-                isPublic: true,
-            }),
+            userId,
+            displayName: profile?.displayName || "Anonymous",
+            bio: profile?.bio || "",
+            avatarUrl: profile?.avatarUrl || "",
+            isPublic: profile?.isPublic !== false,
             username:
                 profile?.username || slugify(profile?.displayName || "", userId),
-            email: profile?.email || "",
-            followers: profile?.followers || [],
-            following: profile?.following || [],
+            followers: Array.isArray(profile?.followers) ? profile.followers : [],
+            following: Array.isArray(profile?.following) ? profile.following : [],
         });
     } catch (error) {
         console.error(error);
@@ -70,20 +67,27 @@ export async function POST(request: Request) {
         }
 
         const displayName = String(body.displayName || sessionDisplayName || sessionEmail || "User").trim();
+        const existingProfile = await db.collection("profiles").findOne({ userId: sessionUserId });
+        const requestedUsername = String(body.username || "").trim();
         const username =
-            body.username ||
+            requestedUsername ||
             slugify(displayName || body.email || sessionEmail || "", sessionUserId || "user");
+        const bio = String(body.bio || "").trim();
+        const avatarUrl = String(body.avatarUrl || "").trim();
+        if (displayName.length > 80 || username.length > 50 || bio.length > 2000 || avatarUrl.length > 2048) {
+            return NextResponse.json({ error: "Invalid profile" }, { status: 400 });
+        }
 
         const updatedProfile = {
             userId: sessionUserId,
             username,
             email: body.email || sessionEmail,
             displayName,
-            bio: body.bio ?? "",
-            avatarUrl: body.avatarUrl || "",
-            isPublic: body.isPublic ?? true,
-            followers: body.followers || [],
-            following: body.following || [],
+            bio,
+            avatarUrl,
+            isPublic: body.isPublic !== false,
+            followers: Array.isArray(existingProfile?.followers) ? existingProfile.followers : [],
+            following: Array.isArray(existingProfile?.following) ? existingProfile.following : [],
         };
 
         // 1. profiles コレクション更新

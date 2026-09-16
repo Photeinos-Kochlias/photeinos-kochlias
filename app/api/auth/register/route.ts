@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
+import { createSessionToken, getSessionCookieOptions, hashPassword } from "@/lib/security";
 
 function slugify(value: string) {
     return value
@@ -13,11 +14,11 @@ function slugify(value: string) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const email = (body.email || "").trim().toLowerCase();
+        const email = String(body.email || "").trim().toLowerCase();
         const password = String(body.password || "");
-        const displayName = (body.displayName || email || "User").trim();
+        const displayName = String(body.displayName || email || "User").trim();
 
-        if (!email || !password) {
+        if (!email || !password || email.length > 254 || password.length < 8 || password.length > 128 || displayName.length > 80) {
             return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
         }
 
@@ -31,9 +32,10 @@ export async function POST(request: Request) {
         }
 
         const username = slugify(displayName || email);
+        const passwordHash = await hashPassword(password);
         const result = await users.insertOne({
             email,
-            password,
+            password: passwordHash,
             displayName,
             username,
             createdAt: new Date().toISOString(),
@@ -58,19 +60,13 @@ export async function POST(request: Request) {
         );
 
         const cookieStore = await cookies();
-        cookieStore.set("blog-auth", JSON.stringify({
+        cookieStore.set("blog-auth", createSessionToken({
             email,
             id: result.insertedId.toString(),
             name: displayName,
             displayName,
             username,
-        }), {
-            httpOnly: true,
-            sameSite: "lax",
-            path: "/",
-            maxAge: 60 * 60 * 24 * 7,
-            secure: process.env.NODE_ENV === "production",
-        });
+        }), getSessionCookieOptions());
 
         return NextResponse.json({ ok: true });
     } catch (error) {

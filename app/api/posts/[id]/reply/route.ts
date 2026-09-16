@@ -10,7 +10,16 @@ export async function POST(
     try {
         const { id } = await params;
         const session = await auth();
+        if (!session?.user?.id || !session.user.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const body = await request.json();
+        const content = String(body.content || "").trim();
+        if (!content || content.length > 5000) {
+            return NextResponse.json({ error: "Invalid reply" }, { status: 400 });
+        }
+
         const client = await getMongoClient();
         const db = client.db(getDatabaseName());
         const post = await db.collection("posts").findOne({ id: Number(id) });
@@ -19,8 +28,8 @@ export async function POST(
             return NextResponse.json({ error: "Post not found" }, { status: 404 });
         }
 
-        const authorId = session?.user?.id || "guest";
-        const sessionEmail = session?.user?.email || "";
+        const authorId = session.user.id;
+        const sessionEmail = session.user.email;
 
         const profile =
             authorId !== "guest" || sessionEmail
@@ -36,11 +45,11 @@ export async function POST(
 
         const reply = {
             id: Date.now(),
-            content: String(body.content || "").trim(),
+            content,
             authorId,
             authorEmail: sessionEmail,
             authorName:
-                profile?.displayName || session?.user?.name || "Anonymous",
+                profile?.displayName || session.user.name || "Anonymous",
             authorUsername: profile?.username || "",
             createdAt: new Date().toLocaleDateString("ja-JP", {
                 year: "numeric",

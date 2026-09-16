@@ -7,6 +7,9 @@ export async function POST(request: Request) {
     try {
         const session = await auth();
         const body = await request.json();
+        const targetUserId = typeof body.targetUserId === "string"
+            ? body.targetUserId.trim()
+            : "";
         const client = await getMongoClient();
         const db = client.db(getDatabaseName());
 
@@ -16,6 +19,9 @@ export async function POST(request: Request) {
                 { status: 401 },
             );
         }
+        if (!targetUserId || targetUserId.length > 100) {
+            return NextResponse.json({ error: "Invalid target profile" }, { status: 400 });
+        }
 
         const currentUserId =
             (session.user as { id?: string }).id || session.user.email;
@@ -24,7 +30,7 @@ export async function POST(request: Request) {
             .findOne({ userId: currentUserId });
         const targetProfile = await db
             .collection("profiles")
-            .findOne({ userId: body.targetUserId });
+            .findOne({ userId: targetUserId });
 
         if (!targetProfile) {
             return NextResponse.json(
@@ -39,11 +45,14 @@ export async function POST(request: Request) {
         const followers = Array.isArray(targetProfile.followers)
             ? targetProfile.followers
             : [];
-        const willFollow = !following.includes(body.targetUserId);
+        if (targetUserId === currentUserId) {
+            return NextResponse.json({ error: "Cannot follow yourself" }, { status: 400 });
+        }
+        const willFollow = !following.includes(targetUserId);
 
         const nextFollowing = willFollow
-            ? [...following, body.targetUserId]
-            : following.filter((value: string) => value !== body.targetUserId);
+            ? [...following, targetUserId]
+            : following.filter((value: string) => value !== targetUserId);
         const nextFollowers = willFollow
             ? [...followers, currentUserId]
             : followers.filter((value: string) => value !== currentUserId);
@@ -58,14 +67,14 @@ export async function POST(request: Request) {
         await db
             .collection("profiles")
             .updateOne(
-                { userId: body.targetUserId },
+                { userId: targetUserId },
                 { $set: { followers: nextFollowers } },
                 { upsert: true },
             );
 
         if (willFollow) {
             await createNotification(db.collection("notifications"), {
-                recipientId: body.targetUserId,
+                recipientId: targetUserId,
                 actorId: currentUserId,
                 actorName: currentProfile?.displayName || session.user.name || "Someone",
                 type: "follow",

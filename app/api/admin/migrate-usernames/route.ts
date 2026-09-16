@@ -28,6 +28,13 @@ export async function POST() {
     if (!session?.user?.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const adminEmails = (process.env.ADMIN_EMAILS || "")
+        .split(",")
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean);
+    if (!adminEmails.includes(session.user.email.toLowerCase())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const client = await getMongoClient();
     const db = client.db(getDatabaseName());
