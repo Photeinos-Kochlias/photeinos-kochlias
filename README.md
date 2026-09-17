@@ -17,6 +17,6 @@
 - Ruby
 - COBOL
 ## About job offer
-Due to an increase in my existing workload, \n
-I have temporarily suspended the acceptance of new work. \n
-I apologise for any inconvenience caused.
+Due to an increase in my existing workload, <br>
+I have temporarily suspended the acceptance of new work. <br>
+I apologise for any inconvenience caused. <br>
