@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
+import { hashPassword, verifyPassword } from "@/lib/security";
 
 export async function POST(request: Request) {
     try {
@@ -17,12 +18,21 @@ export async function POST(request: Request) {
 
         const client = await getMongoClient();
         const db = client.db(getDatabaseName());
-        const user = await db.collection("users").findOne({ email, password });
+        const user = await db.collection("users").findOne({ email });
+        const isValidPassword = user ? await verifyPassword(password, user.password) : false;
+        const isLegacyPassword = user && user.password === password && !String(user.password).startsWith("scrypt$");
 
-        if (!user) {
+        if (!user || (!isValidPassword && !isLegacyPassword)) {
             return NextResponse.json(
                 { error: "Invalid credentials" },
                 { status: 401 },
+            );
+        }
+
+        if (isLegacyPassword) {
+            await db.collection("users").updateOne(
+                { _id: user._id },
+                { $set: { password: await hashPassword(password) } },
             );
         }
 

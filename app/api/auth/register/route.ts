@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getDatabaseName, getMongoClient } from "@/lib/mongodb";
+import { hashPassword } from "@/lib/security";
 
 function slugify(value: string) {
     return value
@@ -31,9 +32,10 @@ export async function POST(request: Request) {
         }
 
         const username = slugify(displayName || email);
+        const passwordHash = await hashPassword(password);
         const result = await users.insertOne({
             email,
-            password,
+            password: passwordHash,
             displayName,
             username,
             createdAt: new Date().toISOString(),
