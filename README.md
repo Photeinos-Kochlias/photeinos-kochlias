@@ -1,16 +1,22 @@
-## Hi there 👋
+# Hi! I'm Photeinos Kochlias
 
-<!--
-**Photeinos-Kochlias/photeinos-kochlias** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
-
-Here are some ideas to get you started:
-
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+## About me
+- An ordinary high school student engineer.
+### skills
+- JavaScript
+- TypeScript (mostly with Next.js)
+- C
+- C#
+- C++
+- Python
+- HTML
+- CSS
+- PHP
+- AWS
+- Go
+- Ruby
+- COBOL
+## About job offer
+Due to an increase in my existing workload, \n
+I have temporarily suspended the acceptance of new work. \n
+I apologise for any inconvenience caused.
